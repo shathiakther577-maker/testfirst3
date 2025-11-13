@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+    <div class="content">
+        <div class="text">
+            {% for part in parts %}
+                <div
+                    class="symbol"
+                    style="
+                        color: rgb({{ part['rgb'][0] }} {{ part['rgb'][1] }} {{ part['rgb'][2] }});
+                        transform: translateY({{ part['translateY'] }}px)
+                                   rotate({{ part['rotate'] }}deg)
+                                   skew({{ part['skew'][0] }}deg, {{ part['skew'][1] }}deg)
+                                   scale({{ part['scale'][0] }}, {{ part['scale'][1] }})
+                        "
+                >
+                    {{ part['name'] }}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

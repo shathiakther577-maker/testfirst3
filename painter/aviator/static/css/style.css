@@ -1,0 +1,64 @@
+@font-face {
+    font-family: "Kongress";
+    src: url("../fonts/Kongress-Medium.woff2");
+}
+
+* {
+    margin: 0;
+    padding: 0;
+}
+
+.content {
+    width: 1080px;
+    height: 1080px;
+}
+
+.coefficient {
+    font-family: "Kongress";
+    font-size: 55px;
+    color: white;
+}
+
+.aviator_1 {
+    background-image: url("../img/aviator_1.png");
+}
+.aviator_1 .coefficient {
+    padding-top: 775px;
+    padding-left: 10px;
+}
+
+.aviator_2 {
+    background-image: url("../img/aviator_2.png");
+}
+.aviator_2 .coefficient {
+    padding-top: 735px;
+    padding-left: 65px;
+    transform: rotate(-10deg);
+}
+
+.aviator_3 {
+    background-image: url("../img/aviator_3.png");
+}
+.aviator_3 .coefficient {
+    padding-top: 655px;
+    padding-left: 165px;
+    transform: rotate(-22deg)
+}
+
+.aviator_4 {
+    background-image: url("../img/aviator_4.png");
+}
+.aviator_4 .coefficient {
+    padding-top: 585px;
+    padding-left: 265px;
+    transform: rotate(-35deg)
+}
+
+.aviator_5 {
+    background-image: url("../img/aviator_5.png");
+}
+.aviator_5 .coefficient {
+    padding-top: 545px;
+    padding-left: 420px;
+    transform: rotate(-50deg)
+}

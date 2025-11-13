@@ -1,0 +1,43 @@
+@font-face {
+    font-family: "geometria";
+    src: url("../fonts/geometria_bold.ttf");
+}
+
+* {
+    margin: 0;
+    padding: 0;
+}
+
+.coefficient {
+    padding-top: 45px;
+    text-align: center;
+
+    font-family: "geometria";
+    font-size: 120px;
+    color: rgb(65, 64, 72);
+}
+
+.content {
+    width: 1080px;
+    height: 1080px;
+}
+
+.cups_1 {
+    background-image: url("../img/cups_1.png");
+}
+
+.cups_2 {
+    background-image: url("../img/cups_2.png");
+}
+
+.cups_3 {
+    background-image: url("../img/cups_3.png");
+}
+
+.cups_4 {
+    background-image: url("../img/cups_4.png");
+}
+
+.cups_5 {
+    background-image: url("../img/cups_5.png");
+}

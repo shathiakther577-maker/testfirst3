@@ -1,0 +1,60 @@
+@font-face {
+    font-family: "Kongress";
+    src: url("../fonts/Kongress-Medium.woff2");
+}
+
+* {
+    margin: 0;
+    padding: 0;
+}
+
+.content {
+    width: 1080px;
+    height: 1080px;
+
+    font-family: "Kongress";
+    background-image: url("../img/background.png");
+
+    display: grid;
+    grid-template: 120px 420px 420px 120px/120px 420px 420px 120px;
+}
+
+.left_sum, .right_sum {
+    font-size: 160px;
+    grid-row: 2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.left_sum {
+    grid-column: 2;
+    color: #f2f2f2;
+}
+
+.right_sum {
+    grid-column: 3;
+    color: #f2f2f2;
+}
+
+.left_cubes, .right_cubes {
+    grid-row: 3;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-content: flex-start;
+}
+
+.left_cubes {
+    grid-column: 2;
+}
+
+.right_cubes {
+    grid-column: 3;
+}
+
+.cube {
+    width: 125px;
+    height: 156px;
+    margin: 5px;
+}

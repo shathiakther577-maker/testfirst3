@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+    <div class="content">
+        <dir class="left_sum">{{ left_sum }}</dir>
+        <dir class="right_sum">{{ right_sum }}</dir>
+        <div class="left_cubes">
+            {% for cube in left_cubes %}
+                <img class="cube" src="static/img/cube_{{ cube }}.png">
+            {% endfor %}
+        </div>
+        <div class="right_cubes">
+            {% for cube in right_cubes %}
+                <img class="cube" src="static/img/cube_{{ cube }}.png">
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
