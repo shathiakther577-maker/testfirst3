@@ -71,6 +71,7 @@ class UserSchema(BaseModel):
     all_top_points: int = 0  # Количество очков в топе за все время
     day_top_points: int = 0  # Количество очков в топе дня
     week_top_points: int = 0  # Количество очков в недели
+    month_top_points: int = 0  # Количество очков в топе месяца
     coins_top_points: int = 0  # Количество очков в праздничном топе
     rubles_top_points: int = 0  # Количество очков в топе на рубли
     week_rubles_top_points: int = 0  # Количество очков в топе недели на рубли

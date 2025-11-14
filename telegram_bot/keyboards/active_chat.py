@@ -10,11 +10,13 @@ def get_keyboard_change_game_mode() -> InlineKeyboardMarkup:
 
     buttons = []
     for game in ALL_GAMES_VALUES:
+        # game уже строка, не enum
+        game_value = game if isinstance(game, str) else game.value
         buttons.append([InlineKeyboardButton(
             text=GAME_NAMES[game],
             callback_data=json.dumps({
                 "event": "change_game_mode",
-                "game_mode": game.value
+                "game_mode": game_value
             })
         )])
 

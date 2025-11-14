@@ -49,7 +49,7 @@ class TopSettings:
     """
 
     SWITCH_DAY_TOP: bool = True  # Топ дня
-    SWITCH_WEEK_TOP: bool = False  # Топ недели
+    SWITCH_WEEK_TOP: bool = True  # Топ недели
 
     SWITCH_CHATS_TOP: bool = True  # Топ чата
     SWITCH_CLANS_TOP: bool = True  # Топ кланов
@@ -93,7 +93,7 @@ class ClanSettings:
     MAX_JOIN_BARRIER = 9_223_372_036_854_775_807
     # Максимальная значения порога входа в клан
 
-    DELETE_APPLICATION_CLAN = 86_400  # Сутки
+    DELETE_APPLICATION_CLAN = 3_600  # 1 час
     # Количество секунд через которые нужно удалить заявку на вступление или принятия в клан
 
 
@@ -117,14 +117,14 @@ class PromoCodeSettings:
 class NotifyChats(str, Enum):
     """Идентификаторы чатов для отправки логов"""
 
-    MAIN = int(os.getenv("CHAT_ID_MAIN"))  # Прочие
-    RATES = int(os.getenv("CHAT_ID_RATES"))  # Ставки
-    PROMOCODE = int(os.getenv("CHAT_ID_PROMOCODE"))  # Промокоды
-    TOP_REWARD = int(os.getenv("CHAT_ID_TOP_REWARD"))  # Награды за топ
-    CREATE_CLAN = int(os.getenv("CHAT_ID_CREATE_CLAN"))  # Кланы
-    TRANSFER_COINS = int(os.getenv("CHAT_ID_TRANSFER_COINS_LOG"))  # Переводы коинов
-    CHANGE_USER_NAME = int(os.getenv("CHAT_ID_CHANGE_USER_NAME_LOG"))  # Смена имени пользователя
-    RESET_USER_ACCOINT = int(os.getenv("CHAT_ID_RESET_USER_ACCOINT"))  # Обнуление данных пользователя
+    MAIN = int(os.getenv("CHAT_ID_MAIN", "0"))  # Прочие
+    RATES = int(os.getenv("CHAT_ID_RATES", "0"))  # Ставки
+    PROMOCODE = int(os.getenv("CHAT_ID_PROMOCODE", "0"))  # Промокоды
+    TOP_REWARD = int(os.getenv("CHAT_ID_TOP_REWARD", "0"))  # Награды за топ
+    CREATE_CLAN = int(os.getenv("CHAT_ID_CREATE_CLAN", "0"))  # Кланы
+    TRANSFER_COINS = int(os.getenv("CHAT_ID_TRANSFER_COINS_LOG", "0"))  # Переводы коинов
+    CHANGE_USER_NAME = int(os.getenv("CHAT_ID_CHANGE_USER_NAME_LOG", "0"))  # Смена имени пользователя
+    RESET_USER_ACCOINT = int(os.getenv("CHAT_ID_RESET_USER_ACCOINT", "0"))  # Обнуление данных пользователя
 
 
 class ProxySettings:
@@ -144,20 +144,20 @@ class ProxySettings:
 class DatabasePsqlSettings:
     """Настройки базы данных postgresql"""
 
-    DB_USER = os.getenv("PSQL_USER")  # Пользователь базы данных
-    DB_PASSWORD = os.getenv("PSQL_PASSWORD")  # Пароль от базы данных
-    DB_HOST = os.getenv("PSQL_HOST")  # Хостинг базы данных
-    DB_PORT = os.getenv("PSQL_PORT")  # Порт базы данных
-    DB_NAME = os.getenv("PSQL_DATABASE")  # Имя базы данных
+    DB_USER = os.getenv("PSQL_USER", "postgres")  # Пользователь базы данных
+    DB_PASSWORD = os.getenv("PSQL_PASSWORD", "")  # Пароль от базы данных
+    DB_HOST = os.getenv("PSQL_HOST", "localhost")  # Хостинг базы данных
+    DB_PORT = os.getenv("PSQL_PORT", "5432")  # Порт базы данных
+    DB_NAME = os.getenv("PSQL_DATABASE", "whitecoin")  # Имя базы данных
 
 
 class DatabaseRedisSettings:
     """Настройки базы данных redis"""
 
-    DB_NAME = os.getenv("REDIS_DATABASE")  # Имя базы данных
-    DB_HOST = os.getenv("REDIS_HOST")  # Хостинг базы данных
-    DB_PORT = os.getenv("REDIS_PORT")  # Порт на котором работает база данных
-    DB_NUMBER = int(os.getenv("REDIS_DB_NUMBER"))  # Номер базы данных
+    DB_NAME = os.getenv("REDIS_DATABASE", "redis")  # Имя базы данных
+    DB_HOST = os.getenv("REDIS_HOST", "localhost")  # Хостинг базы данных
+    DB_PORT = os.getenv("REDIS_PORT", "6379")  # Порт на котором работает база данных
+    DB_NUMBER = int(os.getenv("REDIS_DB_NUMBER", "0"))  # Номер базы данных
 
 
 class DatabaseRedisRatesSettings:
@@ -175,16 +175,16 @@ class VkBotSettings:
     NAME = "White Coin"  # Имя группы
     API_VERSION = "5.131"  # Версия API для запросом к методам также callback, longpoll
 
-    GROUP_ID = int(os.getenv("VK_GROUP_ID"))  # Id группы
-    GROUP_ACCESS_TOKEN = os.getenv("VK_GROUP_ACCESS_TOKEN")  # Токен доступа группы
-    OWNER_ACCESS_TOKEN = os.getenv("VK_OWNER_ACCESS_TOKEN")  # Токен владельца проекта
+    GROUP_ID = int(os.getenv("VK_GROUP_ID", "0"))  # Id группы
+    GROUP_ACCESS_TOKEN = os.getenv("VK_GROUP_ACCESS_TOKEN", "")  # Токен доступа группы
+    OWNER_ACCESS_TOKEN = os.getenv("VK_OWNER_ACCESS_TOKEN", "")  # Токен владельца проекта
 
-    GROUP_CALLBACK_SECRET = os.getenv("VK_GROUP_CALLBACK_SECRET")
+    GROUP_CALLBACK_SECRET = os.getenv("VK_GROUP_CALLBACK_SECRET", "")
     # Секретный ключ callback для валидации приходящих от вк event-ов
-    GROUP_CALLBACK_CONFIRM_RESPONSE = os.getenv("VK_GROUP_CALLBACK_CONFIRM_RESPONSE")
+    GROUP_CALLBACK_CONFIRM_RESPONSE = os.getenv("VK_GROUP_CALLBACK_CONFIRM_RESPONSE", "")
     # Строка, которую должен вернуть сервер
 
-    MINI_APPS_TOKEN = os.getenv("VK_MINI_APPS_TOKEN")
+    MINI_APPS_TOKEN = os.getenv("VK_MINI_APPS_TOKEN", "")
     # Токен от приложения vk mini apps
 
     LINK = f"vk.me/club{GROUP_ID}"  # Ссылка на бота
@@ -196,12 +196,14 @@ class TelegramBotSettings:
     """Настройки Telegram bot"""
 
     NAME = "White Coin"  # Имя бота
-    BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  # Токен бота от @BotFather
-    BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "")  # Username бота (без @)
+    BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8255662139:AAEmUeMzOJHt_xobxgsFCcAKR_O_7Zgeb6U")  # Токен бота от @BotFather
+    BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "Whitecoingame_bot")  # Username бота (без @)
     
     # TODO: Укажите ID основного канала (например: -1001234567890)
     # Можно получить через @userinfobot или через get_chat API
     CHANNEL_ID = int(os.getenv("TELEGRAM_CHANNEL_ID", "0"))  # ID основного канала для бонусов
+    SUBSCRIPTION_CHANNEL_ID = int(os.getenv("TELEGRAM_SUBSCRIPTION_CHANNEL_ID", "-1003306584831"))  # ID канала за подписку на который можно получать бонусы
+    ADMIN_ID = int(os.getenv("TELEGRAM_ADMIN_ID", "6212101501"))  # ID администратора Telegram бота
     
     WEBHOOK_URL = os.getenv("TELEGRAM_WEBHOOK_URL", "")  # URL для webhook (опционально)
     WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")  # Секретный ключ для webhook

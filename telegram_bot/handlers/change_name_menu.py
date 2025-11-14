@@ -36,7 +36,8 @@ async def handler_change_name_menu(
 
     if message == "назад":
         response = BACK_MAIN_MENU
-        keyboard = get_main_menu_keyboard(user_data)
+        reply_keyboard, _ = get_main_menu_keyboard(user_data)
+        keyboard = reply_keyboard
         update_user_menu(user_id, UserMenu.MAIN, psql_cursor)
 
     elif user_data.banned_nickname:
@@ -85,7 +86,8 @@ async def handler_change_name_menu(
         )
 
         response = f"✅ Ваш ник изменен на {new_user_name_formatted}"
-        keyboard = get_main_menu_keyboard(user_data)
+        reply_keyboard, _ = get_main_menu_keyboard(user_data)
+        keyboard = reply_keyboard
         update_user_menu(user_id, UserMenu.MAIN, psql_cursor)
 
     await send_message(user_id, response, keyboard)

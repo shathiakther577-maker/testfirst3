@@ -35,13 +35,18 @@ async def handler_transfer_coins_menu(
 
         if message == "назад" or message == "меню":
             response = BACK_MAIN_MENU
-            keyboard = get_main_menu_keyboard(user_data)
+            reply_keyboard, _ = get_main_menu_keyboard(user_data)
+            keyboard = reply_keyboard
 
             update_user_menu(user_id, UserMenu.MAIN, psql_cursor)
             update_user_extra_data(user_id, None, psql_cursor)
 
         else:
-            recipient_id = await get_user_id(message)
+            # Разделяем сообщение на части (username может быть с суммой)
+            message_parts = message.strip().split()
+            recipient_link = message_parts[0] if message_parts else message
+            
+            recipient_id = await get_user_id(recipient_link)
             recipient_data = get_user_data(recipient_id, psql_cursor)
 
             if recipient_id is None:
@@ -94,12 +99,13 @@ async def handler_transfer_coins_menu(
     elif extra_data.menu == MenuTransferCoins.AMOUNT:
 
         if message == "назад":
-            response = "Введи ссылку на игрока"
+            response = "Введи @username или ID игрока"
             update_user_extra_data(user_id, ExtraTransferCoins(), psql_cursor)
 
         elif message == "меню":
             response = BACK_MAIN_MENU
-            keyboard = get_main_menu_keyboard(user_data)
+            reply_keyboard, _ = get_main_menu_keyboard(user_data)
+            keyboard = reply_keyboard
             update_user_menu(user_id, UserMenu.MAIN, psql_cursor)
             update_user_extra_data(user_id, None, psql_cursor)
 
@@ -120,8 +126,9 @@ async def handler_transfer_coins_menu(
                         sender_id=user_id, recipient_id=recipient_id,
                         amount=amount, psql_cursor=psql_cursor
                     )
-                    response = f"✅ {recipient_name} получил {format_number(amount)} BC"
-                    keyboard = get_main_menu_keyboard(user_data)
+                    response = f"✅ {recipient_name} получил {format_number(amount)} WC"
+                    reply_keyboard, _ = get_main_menu_keyboard(user_data)
+                    keyboard = reply_keyboard
                     update_user_menu(user_id, UserMenu.MAIN, psql_cursor)
                     update_user_extra_data(user_id, None, psql_cursor)
 

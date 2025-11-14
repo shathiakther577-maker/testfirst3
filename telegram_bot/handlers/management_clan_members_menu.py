@@ -24,7 +24,8 @@ async def handler_management_clan_members_menu(
 
     if message == "меню":
         response = BACK_MAIN_MENU
-        keyboard = get_main_menu_keyboard(member_data)
+        reply_keyboard, _ = get_main_menu_keyboard(member_data)
+        keyboard = reply_keyboard
         update_user_menu(member_id, UserMenu.MAIN, psql_cursor)
 
     elif message == "кланы":
@@ -74,7 +75,8 @@ async def handler_management_clan_members_menu(
 
     elif message == "покинуть клан":
         response = "Вы покинули клан"
-        keyboard = get_main_menu_keyboard(member_data)
+        reply_keyboard, _ = get_main_menu_keyboard(member_data)
+        keyboard = reply_keyboard
 
         update_user_menu(member_id, UserMenu.MAIN, psql_cursor)
         clan_service = ClanService

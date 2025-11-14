@@ -202,7 +202,7 @@ class BonusRepostService:
 
         with open(file_path, "w") as file:
             file_text = "\n".join([
-                f"Id{repost['user_id']} — {format_number(repost['reward'])} BC"
+                f"Id{repost['user_id']} — {format_number(repost['reward'])} WC"
                 for repost in repost_log
             ])
             file.write(file_text if bool(file_text) else "Нет участников")

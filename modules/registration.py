@@ -12,8 +12,8 @@ from modules.databases.users import register_user, update_free_nick_change, upda
 from modules.telegram.bot import send_message
 from modules.telegram.users import get_user_name
 
-from vk_bot.template_messages import SOMETHING_WENT_WRONG
-from vk_bot.keyboards.main_menu import get_start_bonus_keyboard, get_main_menu_keyboard
+from telegram_bot.template_messages import SOMETHING_WENT_WRONG
+from telegram_bot.keyboards.main_menu import get_start_bonus_keyboard, get_main_menu_keyboard
 
 
 async def first_greeting(
@@ -28,14 +28,34 @@ async def first_greeting(
     Temp.REGISTER_USERS.append(user_id)
 
     try:
-        _, _, full_name = await get_user_name(user_id)
+        from modules.telegram.users import get_user_data
+        user_telegram_data = await get_user_data(user_id)
+        full_name = user_telegram_data.get("full_name", "") if user_telegram_data else ""
+        telegram_username = user_telegram_data.get("username", "") if user_telegram_data else ""
+        
         full_name = SecurityService.replace_banned_symbols(full_name)
         user_data = register_user(user_id, full_name, psql_cursor)
 
+        # Сохраняем telegram_username
+        if telegram_username:
+            psql_cursor.execute("""
+                UPDATE users
+                SET telegram_username = %s
+                WHERE user_id = %s
+            """, (telegram_username, user_id))
+
+        reply_keyboard, inline_keyboard = get_main_menu_keyboard(user_data)
         await send_message(
             chat_id=user_id,
             message="🔥 Добро пожаловать в White Coin",
-            keyboard=get_main_menu_keyboard(user_data)
+            keyboard=reply_keyboard
+        )
+        
+        if inline_keyboard:
+            await send_message(
+                chat_id=user_id,
+                message="🏆 Топы:",
+                keyboard=inline_keyboard
         )
 
         if Config.GETTING_START_BONUS:
@@ -92,7 +112,7 @@ async def get_start_bonus(
                 redis_cursor=redis_cursor
             )
 
-            response = f"✅ Вы получили {format_number(Config.REWARD_START_BONUS)} BC"
+            response = f"✅ Вы получили {format_number(Config.REWARD_START_BONUS)} WC"
 
         else:
             response = "❌ Вы уже забрали эту награду"

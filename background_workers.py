@@ -28,12 +28,14 @@ from schemas.bot_statistics import StatisticsSchema
 from services.incomes import IncomesService
 from services.promocode import PromoCodeService
 from services.bonus_repost import BonusRepostService
+from services.bonus_subscription import BonusSubscriptionService
 from services.notification import NotificationsService, NotifyChats
 from services.reset_user_data import ResetUserServices
 
 from modules.additional import format_number, get_word_case
-from modules.databases.users import get_user_data, update_users_last_activity
-from modules.telegram.bot import send_message, send_keyboard
+from modules.databases.users import get_user_data, update_users_last_activity, give_coins
+from modules.telegram.bot import send_message, send_keyboard, is_user_subscribed
+from settings import TelegramBotSettings
 
 from vk_bot.template_messages import REPEAT_CHAT_SUBSCRIPTION
 from vk_bot.keyboards.other import empty_keyboard, repeat_chat_subscription_keyboard, \
@@ -342,6 +344,174 @@ class BackgroundWorkers:
                 redis_cursor.close()
 
 
+    @staticmethod
+    async def distribute_subscription_bonuses() -> None:
+        """Проверяет подписки и выдает бонусы за подписку"""
+
+        while True:
+            try:
+                psql_connect, psql_cursor = get_postgresql_connection()
+
+                # Получаем активные бонусы
+                active_bonuses = BonusSubscriptionService.get_active_bonuses(psql_cursor)
+
+                if active_bonuses:
+                    # Получаем всех пользователей из базы данных
+                    psql_cursor.execute("SELECT user_id FROM users WHERE user_id > 0")
+                    user_ids = [row["user_id"] for row in psql_cursor.fetchall()]
+
+                    channel_id = TelegramBotSettings.SUBSCRIPTION_CHANNEL_ID
+
+                    for bonus in active_bonuses:
+                        for user_id in user_ids:
+                            try:
+                                # Проверяем, не получал ли пользователь уже этот бонус
+                                if BonusSubscriptionService.user_received_bonus(user_id, bonus.id, psql_cursor):
+                                    continue
+
+                                # Проверяем подписку на канал
+                                if await is_user_subscribed(user_id, channel_id):
+                                    # Выдаем бонус
+                                    give_coins(user_id, bonus.reward, psql_cursor)
+                                    BonusSubscriptionService.mark_bonus_received(
+                                        user_id, bonus.id, bonus.reward, psql_cursor
+                                    )
+
+                                    # Отправляем сообщение пользователю
+                                    message = f"Получен бонус за подписку в размере {format_number(bonus.reward)} White Coin"
+                                    await send_message(user_id, message)
+
+                                    # Небольшая задержка, чтобы не перегружать API
+                                    await asyncio.sleep(0.05)
+
+                            except Exception as e:
+                                # Пропускаем ошибки для отдельных пользователей
+                                print(f"Error processing user {user_id} for bonus {bonus.id}: {e}")
+                                continue
+
+                psql_cursor.close()
+                psql_connect.close()
+                # Проверяем каждые 5 минут
+                await asyncio.sleep(300)
+
+            except Exception as e:
+                print(f"Error in distribute_subscription_bonuses: {e}")
+                traceback.print_exc()
+                await asyncio.sleep(60)
+
+    @staticmethod
+    async def check_and_finish_games() -> None:
+        """Проверяет и завершает зависшие игры"""
+        from games.base import BaseGameModel
+        from schemas.games import Games
+        
+        while True:
+            try:
+                psql_connect, psql_cursor = get_postgresql_connection()
+                
+                # Находим игры которые должны были завершиться
+                # Добавляем задержку в 10 секунд после end_datetime, чтобы не конфликтовать с обычным завершением
+                # Также обрабатываем игры с is_active=FALSE и income=0 или income IS NULL (не обработанные)
+                psql_cursor.execute("""
+                    SELECT game_id, chat_id, game_mode,
+                           EXTRACT(EPOCH FROM (NOW() - end_datetime)) as seconds_past,
+                           is_active, income
+                    FROM games 
+                    WHERE (
+                        (is_active = TRUE AND 
+                         end_datetime IS NOT NULL AND
+                         end_datetime < NOW() - INTERVAL '10 seconds')
+                        OR
+                        (is_active = FALSE AND 
+                         (income IS NULL OR income = 0 OR income = -1) AND
+                          end_datetime IS NOT NULL AND
+                         end_datetime < NOW() - INTERVAL '10 seconds')
+                    )
+                    ORDER BY end_datetime ASC
+                    LIMIT 10
+                """)
+                stuck_games = psql_cursor.fetchall()
+                
+                if stuck_games:
+                    print(f"[WORKER] Найдено {len(stuck_games)} зависших игр", flush=True)
+                
+                for game in stuck_games:
+                    try:
+                        game_id = game["game_id"]
+                        game_mode_str = game["game_mode"]
+                        seconds_past = game["seconds_past"]
+                        
+                        # Проверяем что игра не обрабатывается
+                        with BaseGameModel._processing_games_lock:
+                            if game_id in BaseGameModel._processing_games:
+                                print(f"[WORKER] Игра {game_id} уже обрабатывается, пропускаем", flush=True)
+                                continue
+                        
+                        # Проверяем что игра существует в GAMES_MODEL
+                        try:
+                            game_mode = Games(game_mode_str)
+                            if game_mode not in BaseGameModel.GAMES_MODEL:
+                                print(f"[WORKER ERROR] Игра {game_mode_str} не найдена в GAMES_MODEL для игры {game_id}", flush=True)
+                                # Помечаем игру как неактивную если режим игры не поддерживается
+                                psql_cursor.execute("""
+                                    UPDATE games SET is_active = FALSE
+                                    WHERE game_id = %(game_id)s
+                                """, {"game_id": game_id})
+                                psql_connect.commit()
+                                continue
+                            
+                        game_model = BaseGameModel.GAMES_MODEL[game_mode]
+                            is_active = game.get("is_active", True)
+                            income = game.get("income")
+                            if is_active:
+                                print(f"[WORKER] Завершаем зависшую игру {game_id} (прошло {seconds_past:.1f} сек после end_datetime)", flush=True)
+                            else:
+                                print(f"[WORKER] Обрабатываем необработанную игру {game_id} (is_active={is_active}, income={income}, прошло {seconds_past:.1f} сек после end_datetime)", flush=True)
+                            
+                            # Завершаем игру с time_left=0 (немедленно)
+                            await game_model.submit_results(game_id, 0)
+                            
+                        except KeyError as e:
+                            print(f"[WORKER ERROR] Игра {game_id}: режим игры {game_mode_str} не найден: {e}", flush=True)
+                            # Помечаем игру как неактивную
+                            psql_cursor.execute("""
+                                UPDATE games SET is_active = FALSE
+                                WHERE game_id = %(game_id)s
+                            """, {"game_id": game_id})
+                            psql_connect.commit()
+                        except Exception as e:
+                            print(f"[WORKER ERROR] Ошибка при завершении игры {game_id}: {e}", flush=True)
+                            import traceback
+                            traceback.print_exc()
+                            
+                            # Если ошибка критическая, помечаем игру как неактивную
+                            if "not found" in str(e).lower() or "не найдена" in str(e).lower():
+                                try:
+                                    psql_cursor.execute("""
+                                        UPDATE games SET is_active = FALSE
+                                        WHERE game_id = %(game_id)s
+                                    """, {"game_id": game_id})
+                                    psql_connect.commit()
+                                except:
+                                    pass
+                    
+                    except Exception as e:
+                        print(f"[WORKER ERROR] Ошибка при обработке игры: {e}", flush=True)
+                        import traceback
+                        traceback.print_exc()
+                
+                psql_cursor.close()
+                psql_connect.close()
+                
+                # Проверяем каждые 5 секунд
+                await asyncio.sleep(5)
+                
+            except Exception as e:
+                print(f"[WORKER ERROR] Ошибка в check_and_finish_games: {e}", flush=True)
+                import traceback
+                traceback.print_exc()
+                await asyncio.sleep(10)
+
     @classmethod
     async def run_workers(cls) -> None:
         """Запускает задачи"""
@@ -350,6 +520,8 @@ class BackgroundWorkers:
             cls.every_day,
             cls.reser_user_data,
             cls.reset_subscribe_chats,
+            cls.distribute_subscription_bonuses,
+            cls.check_and_finish_games,  # Добавляем проверку зависших игр
             BonusRepostService.publish_post_end_bonus,
             PromoCodeService.run_collector_expired_promocodes
         ]

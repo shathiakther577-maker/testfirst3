@@ -59,7 +59,7 @@ async def handler_inactive_chat(
             ChatsService.update_owner_id(chat_id, owner_id, psql_cursor)
 
     if (
-        message in ["start", "начать", "help", "выбор"] or
+        message in ["start", "/start", "начать", "help", "выбор"] or
 
         payload is not None and
         payload.get("event") == "update_select_game" or
@@ -109,9 +109,14 @@ async def handler_inactive_chat(
                 take_coins(user_id, cost, psql_cursor)
                 IncomesService.records_additional_incomes(cost, redis_cursor)
 
-            game_model = BaseGameModel.GAMES_MODEL[chat_data.game_mode]
-            game_result = game_model.create_game(chat_id, psql_cursor)
-            keyboard = game_model.get_game_keyboard(game_result)
+            # Проверяем, что игра существует в GAMES_MODEL
+            if chat_data.game_mode not in BaseGameModel.GAMES_MODEL:
+                response = f"❌ Игра {chat_data.game_mode.value} не поддерживается"
+                keyboard = get_keyboard_select_game_mode()
+            else:
+                game_model = BaseGameModel.GAMES_MODEL[chat_data.game_mode]
+                game_result = game_model.create_game(chat_id, psql_cursor)
+                keyboard = game_model.get_game_keyboard(game_result)
 
             await NotificationsService.send_notification(
                 chat=NotifyChats.MAIN,
@@ -131,5 +136,12 @@ async def handler_inactive_chat(
         response = "✅"
         keyboard = empty_keyboard
 
-    await send_message(chat_id, response, keyboard)
+    # В оригинале VK всегда отправляется сообщение, даже если response is None
+    # (тогда отправляется пустое сообщение с клавиатурой)
+    # В Telegram отправляем только если есть response
+    if response is not None:
+        await send_message(chat_id, response, keyboard)
+    else:
+        # Логируем, если сообщение не обработано
+        print(f"Unhandled message in inactive_chat: chat_id={chat_id}, user_id={user_id}, message={message}", flush=True)
 

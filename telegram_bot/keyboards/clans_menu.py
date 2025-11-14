@@ -11,10 +11,22 @@ def get_create_clan_keyboard() -> ReplyKeyboardMarkup:
 
     buttons = [
         [KeyboardButton(text="Создать клан")],
+        [KeyboardButton(text="Топ кланов")],
         [KeyboardButton(text="Меню")]
     ]
 
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+
+def get_clan_menu_keyboard(user_data: UserSchema) -> ReplyKeyboardMarkup:
+    """Возвращает клавиатуру для меню клана в зависимости от роли пользователя"""
+    
+    if user_data.clan_role == ClanRole.OWNER:
+        return get_clan_owner_keyboard()
+    elif user_data.clan_role == ClanRole.MEMBER:
+        return get_clan_member_keyboard()
+    else:
+        return get_create_clan_keyboard()
 
 
 def get_clan_member_keyboard() -> ReplyKeyboardMarkup:
@@ -143,18 +155,30 @@ def get_keyboard_delete_clan() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
 
-def get_keyboard_answer_user_join_clan() -> InlineKeyboardMarkup:
-    """Возвращает клавиатуру для ответа на заявку в клан"""
+def get_keyboard_answer_user_join_clan(user_id: int, clan_id: int) -> InlineKeyboardMarkup:
+    """Возвращает клавиатуру для ответа на приглашение в клан"""
+    
+    from schemas.clans import ClanTypeApplication
 
     buttons = [
         [
             InlineKeyboardButton(
                 text="Принять",
-                callback_data=json.dumps({"event": "accept_join_request"})
+                callback_data=json.dumps({
+                    "event": ClanTypeApplication.CLAN_TO_USER.value,
+                    "confirm": True,
+                    "user_id": user_id,
+                    "clan_id": clan_id
+                })
             ),
             InlineKeyboardButton(
                 text="Отклонить",
-                callback_data=json.dumps({"event": "reject_join_request"})
+                callback_data=json.dumps({
+                    "event": ClanTypeApplication.CLAN_TO_USER.value,
+                    "confirm": False,
+                    "user_id": user_id,
+                    "clan_id": clan_id
+                })
             )
         ]
     ]

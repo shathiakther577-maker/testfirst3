@@ -14,6 +14,7 @@ from schemas.redis import RedisKeys
 from services.incomes import IncomesService
 from services.promocode import PromoCodeService
 from services.bonus_repost import BonusRepostService
+from services.bonus_subscription import BonusSubscriptionService
 from services.notification import NotificationsService, NotifyChats
 from services.transfer_coins import TransferCoinsService, TransferWhiteListService
 from services.reset_user_data import ResetUserServices
@@ -50,9 +51,9 @@ ADMIN_HELP_MESSAGE = """
     • losers mode[day/week/all_time] - Показывает самых невезучих игроков
 
     ВЫДАЧА COIN'S
-    • set user_id amount - Устанавливает пользователю BC
-    • give user_id amount - Выдает пользователю BC
-    • take user_id amount - Забирает у пользователя BC
+    • set user_id amount - Устанавливает пользователю WC
+    • give user_id amount - Выдает пользователю WC
+    • take user_id amount - Забирает у пользователя WC
 
     СТАТУСЫ ПОЛЬЗОВАТЕЛЕЙ
     • zero user_id - Удалить пользователя
@@ -98,8 +99,13 @@ ADMIN_HELP_MESSAGE = """
 
     БОНУС ЗА РЕПОСТ
     • post - Показывает активные бонусы за репост
-    • npost post_id reward[BC] sub_reward[BC] activations seconds - Создать бонус за репост
+    • npost post_id reward[WC] sub_reward[WC] activations seconds - Создать бонус за репост
     • dpost post_id - Удаляет бонус за репост
+
+    БОНУС ЗА ПОДПИСКУ
+    • subbonus - Показывает активные бонусы за подписку
+    • nsubbonus reward[WC] - Создать разовый бонус за подписку
+    • dsubbonus bonus_id - Удаляет бонус за подписку
 
     ПРОГРАММИСТ
     • dev - Выводит сколько вышло
@@ -313,13 +319,13 @@ async def handler_admin_menu(
 
                 📅 Сегодня: {response_day_games}
                 🕹️ Поставлено: {format_number(rates["day"])}
-                🔄 Куплено BC: {format_number(int(day_payments["coins"]))} ({format_number(int(day_payments["coins"] // 1_000))})
+                🔄 Куплено WC: {format_number(int(day_payments["coins"]))} ({format_number(int(day_payments["coins"] // 1_000))})
                 🧾 Получено: {format_number(day_other_profit)}
                 🧾 Роздано: {format_number(day_other_expenses)}
 
                 📅 За все время: {response_all_games}
                 🕹️ Поставлено: {format_number(rates["all"])}
-                🔄 Куплено BC: {format_number(int(all_payments["coins"]))} ({format_number(int(all_payments["coins"] // 1_000))})
+                🔄 Куплено WC: {format_number(int(all_payments["coins"]))} ({format_number(int(all_payments["coins"] // 1_000))})
                 🧾 Получено: {format_number(int(bot_statistics["other_profit"] + day_other_profit))}
                 🧾 Роздано: {format_number(int(bot_statistics["other_expenses"] + day_other_expenses))}
             """
@@ -503,14 +509,14 @@ async def handler_admin_menu(
             number = AdminPanel.get_number(split_message[2])
             set_coins(user_data.user_id, number, psql_cursor)
 
-            response = f"Баланс {user_data.vk_name} изменен на {format_number(number)} BC"
+            response = f"Баланс {user_data.vk_name} изменен на {format_number(number)} WC"
             await NotificationsService.send_notification(
                 chat=NotifyChats.MAIN,
-                message=f"{admin_data.vk_name} изменил баланс {user_data.vk_name} на {format_number(number)} BC"
+                message=f"{admin_data.vk_name} изменил баланс {user_data.vk_name} на {format_number(number)} WC"
             )
             await send_message(
                 peer_id=user_data.user_id,
-                message=f"🅰 Администратор изменил Ваш баланс на {format_number(number)} BC"
+                message=f"🅰 Администратор изменил Ваш баланс на {format_number(number)} WC"
             )
 
         elif split_message[0] == "give" and len_split_message == 3:
@@ -519,14 +525,14 @@ async def handler_admin_menu(
             number = AdminPanel.get_number(split_message[2])
             give_coins(user_data.user_id, number, psql_cursor)
 
-            response = f"{user_data.vk_name} получил {format_number(number)} BC"
+            response = f"{user_data.vk_name} получил {format_number(number)} WC"
             await NotificationsService.send_notification(
                 chat=NotifyChats.MAIN,
-                message=f"{admin_data.vk_name} выдал {user_data.vk_name} {format_number(number)} BC"
+                message=f"{admin_data.vk_name} выдал {user_data.vk_name} {format_number(number)} WC"
             )
             await send_message(
                 peer_id=user_data.user_id,
-                message=f"🅰 Администратор выдал Вам {format_number(number)} BC"
+                message=f"🅰 Администратор выдал Вам {format_number(number)} WC"
             )
 
         elif split_message[0] == "take" and len_split_message == 3:
@@ -535,14 +541,14 @@ async def handler_admin_menu(
             number = AdminPanel.get_number(split_message[2])
             take_coins(user_data.user_id, number, psql_cursor)
 
-            response = f"У {user_data.vk_name} изъято {format_number(number)} BC"
+            response = f"У {user_data.vk_name} изъято {format_number(number)} WC"
             await NotificationsService.send_notification(
                 chat=NotifyChats.MAIN,
-                message=f"{admin_data.vk_name} изъял у {user_data.vk_name} {format_number(number)} BC"
+                message=f"{admin_data.vk_name} изъял у {user_data.vk_name} {format_number(number)} WC"
             )
             await send_message(
                 peer_id=user_data.user_id,
-                message=f"🅰 Администратор забрал у вас {format_number(number)} BC"
+                message=f"🅰 Администратор забрал у вас {format_number(number)} WC"
             )
 
         elif split_message[0] == "zero" and len_split_message == 2:
@@ -596,7 +602,7 @@ async def handler_admin_menu(
                 👤 Имя: {user_data.vk_name}
                 📅 Дата регистрации: {await get_registration_date(user_data.user_id)}
                 💰 Баланс: {format_number(user_data.coins)}
-                💰 Куплено BC: {format_number(user_data.coins_purchased)}
+                💰 Куплено WC: {format_number(user_data.coins_purchased)}
 
                 🌐 Ставок: {format_number(user_data.rates_count)}
                 ✅ Выиграно: {format_number(user_data.all_win)}
@@ -1060,6 +1066,22 @@ async def handler_admin_menu(
             post_id = AdminPanel.get_number(split_message[1])
             BonusRepostService.delete_post(post_id, psql_cursor)
             response = f"Удален бонус за репост {post_id}"
+
+        elif message == "subbonus":
+            response = BonusSubscriptionService.get_active_bonuses_response_message(psql_cursor)
+
+        elif split_message[0] == "nsubbonus" and len_split_message == 2:
+            reward = AdminPanel.get_number(split_message[1])
+            bonus = BonusSubscriptionService.create_bonus(reward=reward, psql_cursor=psql_cursor)
+            response = f"✅ Создан бонус за подписку:\n{BonusSubscriptionService.format_bonus_message(bonus)}"
+
+        elif split_message[0] == "dsubbonus" and len_split_message == 2:
+            bonus_id = AdminPanel.get_number(split_message[1])
+            if BonusSubscriptionService.get_bonus(bonus_id, psql_cursor) is not None:
+                BonusSubscriptionService.delete_bonus(bonus_id, psql_cursor)
+                response = f"✅ Удален бонус за подписку {bonus_id}"
+            else:
+                response = f"❌ Бонус {bonus_id} не найден"
 
         elif message == "dev":
             response = get_develore_income(psql_cursor, redis_cursor)

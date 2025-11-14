@@ -25,14 +25,23 @@ async def handler_statistics_menu(
 
     if message == "назад":
         response = BACK_SERVICES_MENU
+        from telegram_bot.keyboards.services_menu import get_services_menu_keyboard
         keyboard = get_services_menu_keyboard()
         update_user_menu(user_id, UserMenu.SERVICES, psql_cursor)
 
-    elif is_payload and payload.get("event") == "get_bet_balance_message":
+    elif (
+        (is_payload and payload.get("event") == "get_bet_balance_message") or
+        message in ["🔝 топ", "топ", "топ баланс"]
+    ):
         response = StatisticsService.get_bet_balance_message(psql_cursor)
+        keyboard = get_statistics_menu_keyboard()
 
-    elif is_payload and payload.get("event") == "get_transfers_statistics_message":
+    elif (
+        (is_payload and payload.get("event") == "get_transfers_statistics_message") or
+        message in ["♻ переводы", "переводы"]
+    ):
         response = StatisticsService.get_transfers_stats_message(psql_cursor)
+        keyboard = get_statistics_menu_keyboard()
 
     else:
         response = COMMAND_NOT_FOUND

@@ -171,7 +171,7 @@ async def handler_my_chats_menu(
             prolong_cost = round(((chat_cost / 30) + (chat_cost / 30) * margin) * days_period)
             format_prolong_cost = format_number(prolong_cost)
 
-            response = f"Стоимость продления на {days_period} {days_word} составит {format_prolong_cost} BC, продолжаем ?"
+            response = f"Стоимость продления на {days_period} {days_word} составит {format_prolong_cost} WC, продолжаем ?"
             keyboard = get_prolong_confirm_keyboard()
 
             update_user_extra_data(owner_id, ExtraMyChats(
@@ -224,7 +224,7 @@ async def handler_my_chats_menu(
             days_word = get_word_case(days_period, ("день", "дня", "дней"))
             format_prolong_cost = format_number(extra_data.prolong_cost)
 
-            response = f"Стоимость продления на {days_period} {days_word} составит {format_prolong_cost} BC, продолжаем ?"
+            response = f"Стоимость продления на {days_period} {days_word} составит {format_prolong_cost} WC, продолжаем ?"
             keyboard = get_prolong_confirm_keyboard()
 
     else:

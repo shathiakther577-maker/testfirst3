@@ -242,17 +242,26 @@ class RatesService:
                 """, _rate_data)
 
             if not from_auto_game:
+                total_amount = rate_data.amount * number_games
+                
+                # Проверяем баланс перед списанием
+                if user_coins < total_amount:
+                    raise ValueError(f"Insufficient balance: {user_coins} < {total_amount}")
 
                 psql_cursor.execute("""
                     UPDATE users
                     SET coins = coins - %(amount)s,
                         rates_count = rates_count + %(number_games)s
-                    WHERE user_id = %(user_id)s
+                    WHERE user_id = %(user_id)s AND coins >= %(amount)s
                 """, {
-                    "amount": rate_data.amount * number_games,
+                    "amount": total_amount,
                     "number_games": number_games,
                     "user_id": user_id
                 })
+                
+                # Проверяем что обновление прошло успешно
+                if psql_cursor.rowcount == 0:
+                    raise ValueError(f"Failed to deduct coins: insufficient balance or user not found")
 
                 psql_cursor.execute("""
                     SELECT coins
@@ -262,8 +271,13 @@ class RatesService:
                     "user_id": user_id
                 })
 
-                if (psql_cursor.fetchone())["coins"] < 0:
-                    raise Exception()
+                result = psql_cursor.fetchone()
+                if result is None:
+                    raise ValueError(f"User {user_id} not found after update")
+                
+                new_balance = result["coins"]
+                if new_balance < 0:
+                    raise ValueError(f"Balance became negative after bet: {new_balance}")
 
                 psql_cursor.execute("""
                     UPDATE user_in_chat
@@ -301,7 +315,7 @@ class RatesService:
         if amount >= Config.NOTIFICATION_RATE or winning_amount >= Config.NOTIFICATION_WIN:
             admin_message = f"""
                 {f"📍 Авто игры 📍 осталось {format_number(number_auto_games)}" if from_auto_game else ""}
-                {user_name} поставил {format_amount} BC {rate_type_ru}
+                {user_name} поставил {format_amount} WC {rate_type_ru}
                 Выигрыш: {format_number(winning_amount)}
                 Исход: {game_model.get_result_message(game_result, short=True)}
                 Баланс: {format_number(int(user_coins - amount))}
@@ -309,7 +323,7 @@ class RatesService:
                 Номер чата: {int(chat_id - 2E9)} ({game_id})
             """
 
-        return f"{user_name}, успешная ставка {format_amount} BC {rate_type_ru}", True, admin_message
+        return f"{user_name}, успешная ставка {format_amount} WC {rate_type_ru}", True, admin_message
 
 
     @classmethod
@@ -403,11 +417,30 @@ class RatesService:
     ) -> None:
         """Запускает игру если она до этого была не запущена"""
 
-        if (
-            get_game_data(game_id, psql_cursor).time_left is None and
-            game_id not in Temp.GAMES
-        ):
-            game_model.init_game(game_id, psql_cursor, redis_cursor)
+        try:
+            game_data = get_game_data(game_id, psql_cursor)
+            if game_data is None:
+                print(f"[GAME ERROR] Game {game_id} not found in _run_game", flush=True)
+                return
+            
+            time_left = game_data.time_left
+            is_in_temp = game_id in Temp.GAMES
+            end_datetime = game_data.end_datetime
+            
+            print(f"[GAME] _run_game: game_id={game_id}, time_left={time_left}, end_datetime={end_datetime}, in_temp={is_in_temp}", flush=True)
+            
+            # КРИТИЧНО: Проверяем end_datetime, а не только time_left
+            # Если end_datetime не установлен, нужно вызвать init_game
+            if (time_left is None or end_datetime is None) and not is_in_temp:
+                print(f"[GAME] Запуск init_game для игры {game_id} (time_left={time_left}, end_datetime={end_datetime})", flush=True)
+                game_model.init_game(game_id, psql_cursor, redis_cursor)
+                print(f"[GAME] init_game завершен для игры {game_id}", flush=True)
+            else:
+                print(f"[GAME] Игра {game_id} уже запущена (time_left={time_left}, end_datetime={end_datetime}, in_temp={is_in_temp})", flush=True)
+        except Exception as e:
+            print(f"[GAME ERROR] Ошибка в _run_game для игры {game_id}: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
 
 
     @classmethod

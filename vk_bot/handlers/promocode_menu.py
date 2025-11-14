@@ -200,7 +200,7 @@ async def handler_promocode_menu(
 
                     await PromoCodeService.activated_promocode(user_data, promocode_data, psql_cursor)
                     response = f"✅ Вы успешно активировали промокод {promocode_data.name} " \
-                        f"и получили {format_number(promocode_data.reward)} BC"
+                        f"и получили {format_number(promocode_data.reward)} WC"
 
                     psql_connection.commit()
 

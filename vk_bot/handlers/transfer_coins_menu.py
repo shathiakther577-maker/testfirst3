@@ -105,7 +105,7 @@ async def handler_transfer_coins_menu(
                         sender_id=user_id, recipient_id=recipient_id,
                         amount=amount, psql_cursor=psql_cursor
                     )
-                    response = f"✅ {recipient_name} получил {format_number(amount)} BC"
+                    response = f"✅ {recipient_name} получил {format_number(amount)} WC"
                     keyboard = get_main_menu_keyboard(user_data)
                     update_user_menu(user_id, UserMenu.MAIN, psql_cursor)
                     update_user_extra_data(user_id, None, psql_cursor)

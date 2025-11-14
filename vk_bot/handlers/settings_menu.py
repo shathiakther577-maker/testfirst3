@@ -94,7 +94,7 @@ async def handler_settings_menu(
         else:
             response = f"""
                 {NOT_ENOUGH_COINS}
-                Стоимость смены имени - {format_services_cost} BC
+                Стоимость смены имени - {format_services_cost} WC
             """
 
     elif message == "тег клана":

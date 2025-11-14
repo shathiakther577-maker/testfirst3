@@ -11,7 +11,7 @@ class StatisticsService:
     def get_best_users_balance(
             psql_cursor: DictCursor
     ) -> list[UserSchema | None]:
-        """Возвращает пользователей отсортированных по балансу"""
+        """Возвращает пользователей отсортированных по балансу (включая мерчантов)"""
 
         psql_cursor.execute("""
             SELECT user_id, full_name, status, coins, show_balance
@@ -21,7 +21,7 @@ class StatisticsService:
             ORDER BY coins DESC
             LIMIT 10
         """, {
-            "ignore_user_status": (UserStatus.ADMIN, UserStatus.MARKET)
+            "ignore_user_status": (UserStatus.ADMIN,)  # Исключаем только админов, мерчанты учитываем
         })
         psql_response = psql_cursor.fetchall()
 
@@ -38,7 +38,7 @@ class StatisticsService:
     def get_user_balance(
             psql_cursor: DictCursor
     ) -> int:
-        """Возвращает баланс пользователей для статистики"""
+        """Возвращает баланс пользователей для статистики (включая мерчантов)"""
 
         psql_cursor.execute("""
             SELECT COALESCE(SUM(coins), 0) as balance
@@ -46,7 +46,7 @@ class StatisticsService:
             WHERE status not in %(ignore_user_status)s AND
                   banned = FALSE
         """, {
-            "ignore_user_status": (UserStatus.ADMIN, UserStatus.MARKET)
+            "ignore_user_status": (UserStatus.ADMIN,)  # Исключаем только админов, мерчанты учитываем
         })
         users_balance = psql_cursor.fetchone()["balance"]
 
@@ -68,12 +68,12 @@ class StatisticsService:
         }
 
         users = cls.get_best_users_balance(psql_cursor)
-        response = [f"📊 Общий баланс BC - {format_number(cls.get_user_balance(psql_cursor))} BC\n"]
+        response = [f"📊 Общий баланс WC - {format_number(cls.get_user_balance(psql_cursor))} WC\n"]
 
         for number, user in enumerate(users, 1):
             user_name = user.vk_name if user.show_balance else "Скрыл"
             format_coins = format_number(user.coins)
-            response.append(f"{emoji_numbers[number]} {user_name} - {format_coins} BC")
+            response.append(f"{emoji_numbers[number]} {user_name} - {format_coins} WC")
 
         return "\n".join(response)
 
@@ -143,6 +143,6 @@ class StatisticsService:
             percent = int(percent)
             str_percent = f"{f'+{percent}' if percent > 0 else str(percent)}%"
 
-            response.append(f"{emoji} За последние {hours} {str_hours} - {format_number(first_amount)} BC ({str_percent})")
+            response.append(f"{emoji} За последние {hours} {str_hours} - {format_number(first_amount)} WC ({str_percent})")
 
         return "\n".join(response)

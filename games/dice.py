@@ -159,31 +159,32 @@ class DiceGameModel(BaseGameModel):
 
 
     @classmethod
-    def get_game_keyboard(cls, game_result: dict | None) -> ReplyKeyboardMarkup:
-
+    def get_game_keyboard(cls, game_result: dict | None) -> InlineKeyboardMarkup:
+        """Возвращает inline-клавиатуру игры для Telegram"""
+        
         buttons = [
             [
-                KeyboardButton(text="Банк"),
-                KeyboardButton(text="Повторить"),
-                KeyboardButton(text="Баланс")
+                InlineKeyboardButton(text="Банк", callback_data='{"event":"get_game_bank"}'),
+                InlineKeyboardButton(text="Повторить", callback_data='{"event":"repeat_bet"}'),
+                InlineKeyboardButton(text="Баланс", callback_data='{"event":"get_user_balance"}')
             ],
             [
-                KeyboardButton(text="1"),
-                KeyboardButton(text="2"),
-                KeyboardButton(text="3")
+                InlineKeyboardButton(text="1", callback_data='{"rate":"1"}'),
+                InlineKeyboardButton(text="2", callback_data='{"rate":"2"}'),
+                InlineKeyboardButton(text="3", callback_data='{"rate":"3"}')
             ],
             [
-                KeyboardButton(text="4"),
-                KeyboardButton(text="5"),
-                KeyboardButton(text="6")
+                InlineKeyboardButton(text="4", callback_data='{"rate":"4"}'),
+                InlineKeyboardButton(text="5", callback_data='{"rate":"5"}'),
+                InlineKeyboardButton(text="6", callback_data='{"rate":"6"}')
             ],
             [
-                KeyboardButton(text="Четное"),
-                KeyboardButton(text="Нечетное")
+                InlineKeyboardButton(text="Четное", callback_data='{"rate":"even"}'),
+                InlineKeyboardButton(text="Нечетное", callback_data='{"rate":"odd"}')
             ]
         ]
 
-        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
     @classmethod

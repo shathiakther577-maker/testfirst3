@@ -62,6 +62,25 @@ class ChatsService:
 
 
     @classmethod
+    def update_game_timer(
+            cls,
+            chat_id: int,
+            timer: int,
+            psql_cursor: DictCursor
+    ) -> None:
+        """Обновляет таймер игры в чате"""
+
+        psql_cursor.execute("""
+            UPDATE chats
+            SET timer = %(timer)s
+            WHERE chat_id = %(chat_id)s
+        """, {
+            "timer": timer,
+            "chat_id": chat_id
+        })
+
+
+    @classmethod
     def update_type(
             cls,
             chat_id: int,
@@ -324,7 +343,7 @@ class ChatsService:
             message += "\n🔥 Топ игроков:"
 
         for index, user in enumerate(users, 1):
-            user_name = UserSchema.format_vk_name(user.user_id, user.full_name)
+            user_name = UserSchema.format_telegram_name(user.user_id, user.full_name)
             rates_amount = format_number(user.rates_amount)
             message += f"\n{index}) {user_name} - поставил {rates_amount} коинов"
 

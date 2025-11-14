@@ -101,6 +101,10 @@ def set_coins(
         psql_cursor: DictCursor
 ) -> None:
     """Устанавливает баланс coins"""
+    
+    # Проверка что amount не отрицательный
+    if amount < 0:
+        raise ValueError(f"Cannot set negative coins amount: {amount}")
 
     psql_cursor.execute("""
         UPDATE users
@@ -110,6 +114,14 @@ def set_coins(
         "amount": amount,
         "user_id": user_id
     })
+    
+    # Проверка что баланс не стал отрицательным (защита от constraint violation)
+    psql_cursor.execute("""
+        SELECT coins FROM users WHERE user_id = %(user_id)s
+    """, {"user_id": user_id})
+    result = psql_cursor.fetchone()
+    if result and result["coins"] < 0:
+        raise ValueError(f"Balance became negative after set_coins: {result['coins']}")
 
 
 def take_coins(
@@ -118,15 +130,46 @@ def take_coins(
         psql_cursor: DictCursor
 ) -> None:
     """Списывает coins у пользователя"""
+    
+    # Проверка что amount положительный
+    if amount <= 0:
+        raise ValueError(f"Cannot take non-positive coins amount: {amount}")
+    
+    # Проверяем текущий баланс перед списанием
+    psql_cursor.execute("""
+        SELECT coins FROM users WHERE user_id = %(user_id)s
+    """, {"user_id": user_id})
+    result = psql_cursor.fetchone()
+    
+    if result is None:
+        raise ValueError(f"User {user_id} not found")
+    
+    current_balance = result["coins"]
+    
+    # Проверяем что баланс достаточен
+    if current_balance < amount:
+        raise ValueError(f"Insufficient balance: {current_balance} < {amount}")
 
     psql_cursor.execute("""
         UPDATE users
         SET coins = coins - %(amount)s
-        WHERE user_id = %(user_id)s
+        WHERE user_id = %(user_id)s AND coins >= %(amount)s
     """, {
         "amount": amount,
         "user_id": user_id
     })
+    
+    # Проверяем что обновление прошло успешно
+    if psql_cursor.rowcount == 0:
+        raise ValueError(f"Failed to take coins: insufficient balance or user not found")
+    
+    # Дополнительная проверка что баланс не стал отрицательным
+    psql_cursor.execute("""
+        SELECT coins FROM users WHERE user_id = %(user_id)s
+    """, {"user_id": user_id})
+    result = psql_cursor.fetchone()
+    if result and result["coins"] < 0:
+        raise ValueError(f"Balance became negative after take_coins: {result['coins']}")
 
 
 def give_coins(
@@ -135,6 +178,10 @@ def give_coins(
         psql_cursor: DictCursor
 ) -> None:
     """Выдает coins пользователю"""
+    
+    # Проверка что amount положительный
+    if amount <= 0:
+        raise ValueError(f"Cannot give non-positive coins amount: {amount}")
 
     psql_cursor.execute("""
         UPDATE users
@@ -144,6 +191,10 @@ def give_coins(
         "amount": amount,
         "user_id": user_id
     })
+    
+    # Проверяем что пользователь существует и обновление прошло
+    if psql_cursor.rowcount == 0:
+        raise ValueError(f"User {user_id} not found")
 
 
 def get_user_name(

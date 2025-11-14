@@ -2,7 +2,19 @@ import asyncio
 import traceback
 
 from redis.client import Redis
-from vk_api.keyboard import VkKeyboard
+# Импорты для совместимости
+try:
+    from vk_api.keyboard import VkKeyboard
+except ImportError:
+    VkKeyboard = None
+
+try:
+    from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+    import json
+except ImportError:
+    InlineKeyboardMarkup = None
+    InlineKeyboardButton = None
+    json = None
 from psycopg2.extras import DictCursor
 
 from settings import TopSettings, NotifyChats, Config
@@ -114,20 +126,30 @@ class WeekTopService(BaseTopService):
         # participants = cls.get_number_participants(psql_cursor)
 
         response = "🔥 Топ игроков еженедельного рейтинга\n"
-        keyboard = VkKeyboard(one_time=False, inline=True)
+        
+        # Определяем тип клавиатуры (VK или Telegram)
+        if VkKeyboard is not None:
+            keyboard = VkKeyboard(one_time=False, inline=True)
+        else:
+            keyboard = None  # Для Telegram можно добавить inline клавиатуру позже
 
         for position, winner in enumerate(winners, offset + 1):
-            winner_name = UserSchema.format_vk_name(winner["user_id"], winner["full_name"])
+            # Используем правильный формат имени в зависимости от платформы
+            try:
+                winner_name = UserSchema.format_telegram_name(winner["user_id"], winner["full_name"])
+            except AttributeError:
+                # Fallback на VK формат если метод не найден
+                winner_name = UserSchema.format_vk_name(winner["user_id"], winner["full_name"])
             winner_points = winner["points"]
 
             response += f"\n{position}) {winner_name} выиграл {format_number(winner_points)} коинов"
             if cls.can_get_reward(winner_points, reward, position):
-                response += f" (приз {reduce_number(reward[position])} BC)"
+                response += f" (приз {reduce_number(reward[position])} WC)"
 
         user_position = cls.get_position(data, psql_cursor)
         response += f"\n\nТы находишься на {user_position} месте, выиграв {format_number(data.week_top_points)} коинов"
         if cls.can_get_reward(data.week_top_points, reward, user_position):
-            response += f"\n💰 Возможный выигрыш: {reduce_number(reward[user_position])} BC"
+            response += f"\n💰 Возможный выигрыш: {reduce_number(reward[user_position])} WC"
 
         # back_page = offset != 0
         # next_page = participants - offset - limit > 0 and 5 * limit > offset + limit
@@ -190,7 +212,7 @@ class WeekTopService(BaseTopService):
                         peer_id=user_id,
                         message=f"""
                             🏆 {user_name}, ты занял {position} место в ежедневном топе
-                            🚀 {user_reward} BC уже на твоем балансе
+                            🚀 {user_reward} WC уже на твоем балансе
                         """
                     ))
                     admin_message += f"\n{position}) {user_name} - наиграл {user_points} выиграл {user_reward}"

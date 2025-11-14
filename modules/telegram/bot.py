@@ -13,26 +13,57 @@ async def send_message(
         message: str | None = None,
         keyboard: InlineKeyboardMarkup | ReplyKeyboardMarkup | None = None,
         photo: str | None = None,
+        attachment: str | None = None,
         parse_mode: str = ParseMode.HTML,
         reply_to_message_id: int | None = None
 ) -> int | None:
     """Отправляет сообщения в Telegram"""
 
-    if message is None and photo is None:
+    # В оригинале VK если message is None, то он устанавливается в ""
+    # В Telegram отправляем только если есть что-то для отправки
+    if message is None and photo is None and attachment is None and keyboard is None:
+        print(f"[SEND] Пропуск отправки: нет message, photo, attachment и keyboard", flush=True)
         return None
 
     try:
+        print(f"[SEND] Отправка сообщения в chat_id={chat_id}, message='{message[:50] if message else None}', keyboard={keyboard is not None}", flush=True)
         bot = Bot(token=TelegramBotSettings.BOT_TOKEN)
 
+        # Используем attachment как photo если photo не указан
+        if attachment and not photo:
+            photo = attachment
+
         if photo:
-            result = await bot.send_photo(
-                chat_id=chat_id,
-                photo=photo,
-                caption=message,
-                reply_markup=keyboard,
-                parse_mode=parse_mode,
-                reply_to_message_id=reply_to_message_id
-            )
+            # Проверяем длину caption (максимум 1024 символа для Telegram)
+            caption = message
+            if message and len(message) > 1024:
+                # Обрезаем caption и отправляем остальное текстом
+                caption = message[:1021] + "..."
+                remaining_text = message[1021:]
+                result = await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    caption=caption,
+                    reply_markup=keyboard,
+                    parse_mode=parse_mode,
+                    reply_to_message_id=reply_to_message_id
+                )
+                # Отправляем остальной текст отдельным сообщением
+                if remaining_text:
+                    await bot.send_message(
+                        chat_id=chat_id,
+                        text=remaining_text,
+                        parse_mode=parse_mode
+                    )
+            else:
+                result = await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    caption=message,
+                    reply_markup=keyboard,
+                    parse_mode=parse_mode,
+                    reply_to_message_id=reply_to_message_id
+                )
         else:
             # Разбиваем длинные сообщения на части
             if message and len(message) > 4096:
@@ -60,13 +91,22 @@ async def send_message(
                     reply_to_message_id=reply_to_message_id
                 )
 
+        print(f"[SEND] Сообщение отправлено успешно: message_id={result.message_id}", flush=True)
         return result.message_id
 
     except TelegramError as e:
-        print(f"Telegram error: {e}")
+        error_message = str(e)
+        print(f"[SEND ERROR] Telegram error в chat_id={chat_id}: {error_message}", flush=True)
+        # Проверяем специфичные ошибки
+        if "chat not found" in error_message.lower() or "user not found" in error_message.lower():
+            print(f"[SEND ERROR] Пользователь {chat_id} не найден или заблокировал бота", flush=True)
+        elif "blocked" in error_message.lower():
+            print(f"[SEND ERROR] Пользователь {chat_id} заблокировал бота", flush=True)
         return None
     except Exception as e:
-        print(f"Error sending message: {e}")
+        print(f"[SEND ERROR] Error sending message в chat_id={chat_id}: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
         return None
 
 
@@ -153,4 +193,17 @@ async def get_chat(chat_id: int):
         return await bot.get_chat(chat_id=chat_id)
     except:
         return None
+
+
+async def is_user_subscribed(user_id: int, channel_id: int) -> bool:
+    """Проверяет, подписан ли пользователь на канал"""
+
+    try:
+        bot = Bot(token=TelegramBotSettings.BOT_TOKEN)
+        member = await bot.get_chat_member(chat_id=channel_id, user_id=user_id)
+        # Для каналов: member, administrator, creator - подписан
+        # left, kicked, restricted - не подписан
+        return member.status in ['member', 'administrator', 'creator']
+    except:
+        return False
 

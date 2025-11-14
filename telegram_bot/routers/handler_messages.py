@@ -14,6 +14,7 @@ from schemas.redis import RedisKeys
 from services.clans import ClanService
 from services.user_in_chat import UserChatService
 from services.notify_banned_user import notify_banned_user
+from services.security import SecurityService
 
 from modules.additional import strtobool
 from modules.registration import first_greeting
@@ -46,15 +47,35 @@ async def handler_messages(update: Update):
     # Обработка callback query (нажатие на кнопку)
     if update.callback_query:
         callback_query = update.callback_query
-        user_id = callback_query.from_user.id
-        chat_id = callback_query.message.chat.id
+        user_id = callback_query.from_user.id if callback_query.from_user else None
+        chat_id = callback_query.message.chat.id if callback_query.message else None
+        
+        if user_id is None or chat_id is None:
+            print(f"[ERROR] Invalid callback_query: missing user_id or chat_id", flush=True)
+            try:
+                await callback_query.answer("Ошибка: не удалось определить пользователя или чат", show_alert=True)
+            except:
+                pass
+            return
         
         # Парсим payload из callback_data
         payload = None
         try:
             if callback_query.data:
                 payload = json.loads(callback_query.data)
-        except:
+                # Валидация payload - должен быть словарем
+                if not isinstance(payload, dict):
+                    print(f"[ERROR] Invalid payload type: {type(payload)}, data: {callback_query.data}", flush=True)
+                    payload = None
+                else:
+                    print(f"[DEBUG] Callback payload parsed: {payload}", flush=True)
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] JSON decode error in callback_data: {e}, data: {callback_query.data}", flush=True)
+            payload = None
+        except Exception as e:
+            print(f"[ERROR] Unexpected error parsing callback_data: {e}, data: {callback_query.data}", flush=True)
+            import traceback
+            traceback.print_exc()
             payload = None
         
         message = ""
@@ -62,33 +83,62 @@ async def handler_messages(update: Update):
         fwd_messages = None
         
         # Отвечаем на callback query
-        await callback_query.answer()
+        try:
+            await callback_query.answer()
+        except Exception as e:
+            print(f"[ERROR] Failed to answer callback_query: {e}", flush=True)
         
     # Обработка обычного сообщения
     elif update.message:
         message_obj = update.message
-        user_id = message_obj.from_user.id
+        user_id = message_obj.from_user.id if message_obj.from_user else None
         chat_id = message_obj.chat.id
+        
+        # Пропускаем сообщения без пользователя
+        if user_id is None:
+            return
         
         payload = None
         original_message = message_obj.text or ""
-        message = original_message.lower()
+        # Приводим к нижнему регистру для сравнения, но сохраняем оригинал
+        # Убираем слеш из команд для обработки
+        message = original_message.lower().strip() if original_message else ""
+        if message.startswith("/"):
+            message = message[1:]  # Убираем слеш из команды
         
         # Обработка пересланных сообщений
         fwd_messages = None
         if message_obj.reply_to_message:
             fwd_messages = [message_obj.reply_to_message]
+        
+        # В группах обрабатываем все сообщения, даже без текста
+        # (для игровых команд которые могут быть без текста)
+        if not original_message and message_obj.chat.type in (ChatType.GROUP, ChatType.SUPERGROUP):
+            message = ""  # Пустое сообщение для обработки в чате
     else:
         return
 
     redis_cursor = get_redis_cursor()
     psql_connection, psql_cursor = get_postgresql_connection()
+    
+    # Логирование для отладки
+    print(f"[DEBUG] Processing: user_id={user_id}, chat_id={chat_id}, message='{message[:50]}', payload={payload}", flush=True)
 
     try:
         user_data = get_user_data(user_id, psql_cursor)
         if user_data is None:
             await first_greeting(user_id, psql_cursor, redis_cursor)
             return
+        
+        # Обновляем данные пользователя из Telegram (имя и username) перед каждым ответом
+        try:
+            from modules.telegram.users import sync_user_data
+            await sync_user_data(user_id)
+            # Перезагружаем user_data с обновленными данными
+            user_data = get_user_data(user_id, psql_cursor)
+        except Exception as e:
+            # Если не удалось обновить данные, продолжаем работу
+            print(f"[DEBUG] Failed to sync user data: {e}", flush=True)
 
         if (
             strtobool(redis_cursor.get(RedisKeys.QUIET_MODE.value) or "0") and
@@ -110,11 +160,21 @@ async def handler_messages(update: Update):
                     return
 
         # Определяем тип чата: личное сообщение или группа
+        # В VK используется peer_id > int(2E9) для определения чата
+        # В Telegram используем ChatType для определения типа чата
         is_private = False
         if update.message:
-            is_private = update.message.chat.type == ChatType.PRIVATE
+            chat_type = update.message.chat.type
+            is_private = chat_type == ChatType.PRIVATE
         elif update.callback_query:
-            is_private = update.callback_query.message.chat.type == ChatType.PRIVATE
+            chat_type = update.callback_query.message.chat.type
+            is_private = chat_type == ChatType.PRIVATE
+        
+        # Для отладки: логируем сообщения из групп
+        if not is_private and update.message:
+            print(f"Group message: chat_id={chat_id}, user_id={user_id}, text={message[:50] if message else '(no text)'}", flush=True)
+        
+        print(f"[DEBUG] is_private={is_private}, user_id={user_id}, chat_id={chat_id}, message='{message[:30]}'", flush=True)
 
         if is_private:  # личное сообщение
 
@@ -162,27 +222,43 @@ async def handler_messages(update: Update):
                 )
 
             elif user_data.menu == UserMenu.CLANS and user_data.clan_role == ClanRole.NOT:
-                await handler_menu_create_clan(
-                    user_id=user_id, user_data=user_data,
-                    message=message, original_message=original_message,
-                    payload=payload, psql_cursor=psql_cursor,
-                    redis_cursor=redis_cursor
-                )
+                try:
+                    await handler_menu_create_clan(
+                        user_id=user_id, user_data=user_data,
+                        message=message, original_message=original_message,
+                        payload=payload, psql_cursor=psql_cursor,
+                        redis_cursor=redis_cursor
+                    )
+                except Exception as e:
+                    print(f"[ROUTER ERROR] handler_menu_create_clan: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
 
             elif user_data.menu == UserMenu.CLANS and user_data.clan_role == ClanRole.OWNER:
-                await handler_management_clan_owner_menu(
-                    owner_id=user_id, owner_data=user_data,
-                    message=message, original_message=original_message,
-                    payload=payload, psql_cursor=psql_cursor,
-                    redis_cursor=redis_cursor
-                )
+                try:
+                    await handler_management_clan_owner_menu(
+                        owner_id=user_id, owner_data=user_data,
+                        message=message, original_message=original_message,
+                        payload=payload, psql_cursor=psql_cursor,
+                        psql_connection=psql_connection,
+                        redis_cursor=redis_cursor
+                    )
+                except Exception as e:
+                    print(f"[ROUTER ERROR] handler_management_clan_owner_menu: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
 
             elif user_data.menu == UserMenu.CLANS and user_data.clan_role == ClanRole.MEMBER:
-                await handler_management_clan_members_menu(
-                    member_id=user_id, member_data=user_data,
-                    message=message, payload=payload,
-                    psql_cursor=psql_cursor
-                )
+                try:
+                    await handler_management_clan_members_menu(
+                        member_id=user_id, member_data=user_data,
+                        message=message, payload=payload,
+                        psql_cursor=psql_cursor
+                    )
+                except Exception as e:
+                    print(f"[ROUTER ERROR] handler_management_clan_members_menu: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
 
             elif user_data.menu == UserMenu.MY_CHATS:
                 await handler_my_chats_menu(
@@ -235,28 +311,42 @@ async def handler_messages(update: Update):
             chat_id_for_db = chat_id  # Используем как есть
             
             chat_data = get_chat_data(chat_id_for_db, psql_cursor)
+            
+            print(f"[DEBUG] Chat: is_activated={chat_data.is_activated if chat_data else None}", flush=True)
 
             if chat_data is None or chat_data.is_activated is False:
-
-                await handler_inactive_chat(
-                    user_id=user_id, user_data=user_data,
-                    chat_id=chat_id_for_db, chat_data=chat_data,
-                    message=message, payload=payload,
-                    psql_cursor=psql_cursor, redis_cursor=redis_cursor
-                )
+                print(f"[DEBUG] Calling handler_inactive_chat", flush=True)
+                try:
+                    await handler_inactive_chat(
+                        user_id=user_id, user_data=user_data,
+                        chat_id=chat_id_for_db, chat_data=chat_data,
+                        message=message, payload=payload,
+                        psql_cursor=psql_cursor, redis_cursor=redis_cursor
+                    )
+                    print(f"[DEBUG] handler_inactive_chat completed", flush=True)
+                except Exception as e:
+                    print(f"[ERROR] handler_inactive_chat: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
 
             else:
+                print(f"[DEBUG] Calling handler_active_chat", flush=True)
                 user_chat_data = UserChatService.get_data(user_id, chat_id_for_db, psql_cursor)
-
-                await handler_active_chat(
-                    user_id=user_id, user_data=user_data,
-                    chat_id=chat_id_for_db, chat_data=chat_data,
-                    user_chat_data=user_chat_data,
-                    message=message, original_message=original_message,
-                    fwd_messages=fwd_messages, payload=payload,
-                    psql_cursor=psql_cursor, psql_connection=psql_connection,
-                    redis_cursor=redis_cursor
-                )
+                try:
+                    await handler_active_chat(
+                        user_id=user_id, user_data=user_data,
+                        chat_id=chat_id_for_db, chat_data=chat_data,
+                        user_chat_data=user_chat_data,
+                        message=message, original_message=original_message,
+                        fwd_messages=fwd_messages, payload=payload,
+                        psql_cursor=psql_cursor, psql_connection=psql_connection,
+                        redis_cursor=redis_cursor
+                    )
+                    print(f"[DEBUG] handler_active_chat completed", flush=True)
+                except Exception as e:
+                    print(f"[ERROR] handler_active_chat: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
 
     finally:
         update_users_last_activity(user_id, psql_cursor)

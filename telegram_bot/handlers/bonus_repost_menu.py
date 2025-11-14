@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from redis.client import Redis
 from psycopg2.extras import DictCursor
 from psycopg2._psycopg import connection as Connection
+from telegram import ReplyKeyboardMarkup
 
 from settings import Temp, TelegramBotSettings
 
@@ -26,7 +27,7 @@ from telegram_bot.keyboards.main_menu import get_main_menu_keyboard
 def go_main_menu(
         user_data: UserSchema,
         psql_cursor: DictCursor
-) -> tuple[str, str]:
+) -> tuple[str, ReplyKeyboardMarkup]:
     """Возвращает сообщение и клавиатуру для перехода в главное меню"""
 
     try:
@@ -37,7 +38,8 @@ def go_main_menu(
     update_user_menu(user_data.user_id, UserMenu.MAIN, psql_cursor)
     update_user_extra_data(user_data.user_id, None, psql_cursor)
 
-    return BACK_MAIN_MENU, get_main_menu_keyboard(user_data)
+    reply_keyboard, _ = get_main_menu_keyboard(user_data)
+    return BACK_MAIN_MENU, reply_keyboard
 
 
 async def handler_bonus_repost_menu(
@@ -71,7 +73,8 @@ async def handler_bonus_repost_menu(
 
         if bonus_post is None or bonus_post.activations <= 0:
             response = DATA_OUTDATED
-            keyboard = get_main_menu_keyboard(user_data)
+            reply_keyboard, _ = get_main_menu_keyboard(user_data)
+            keyboard = reply_keyboard
 
         elif (
                 bonus_post.activations > 0 and
@@ -83,7 +86,8 @@ async def handler_bonus_repost_menu(
             
             if channel_id == 0:
                 response = "❌ Бонус за подписку временно недоступен (канал не настроен)"
-                keyboard = get_main_menu_keyboard(user_data)
+                reply_keyboard, _ = get_main_menu_keyboard(user_data)
+                keyboard = reply_keyboard
             else:
                 # Проверяем подписку на канал вместо репоста
                 is_subscribed = await is_user_subscribed_to_channel(user_id, channel_id)
@@ -114,29 +118,34 @@ async def handler_bonus_repost_menu(
 
                         response = f"✅ Вы получили {format_number(reward)} коинов за подписку на канал."
                         IncomesService.records_additional_expenses(reward, redis_cursor)
-                        keyboard = get_main_menu_keyboard(user_data)
+                        reply_keyboard, _ = get_main_menu_keyboard(user_data)
+                        keyboard = reply_keyboard
 
                     except:
                         response = SOMETHING_WENT_WRONG
                         psql_connection.rollback()
-                        keyboard = get_main_menu_keyboard(user_data)
+                        reply_keyboard, _ = get_main_menu_keyboard(user_data)
+                        keyboard = reply_keyboard
 
                     finally:
                         psql_connection.autocommit = True
                 else:
                     response = "❌ Вы не подписаны на основной канал. Подпишитесь и попробуйте снова."
-                    keyboard = get_main_menu_keyboard(user_data)
+                    reply_keyboard, _ = get_main_menu_keyboard(user_data)
+                    keyboard = reply_keyboard
 
         else:
             response = "😏 Бонус за подписку был уже получен"
-            keyboard = get_main_menu_keyboard(user_data)
+            reply_keyboard, _ = get_main_menu_keyboard(user_data)
+            keyboard = reply_keyboard
         
         response, keyboard = go_main_menu(user_data, psql_cursor)
 
     else:
         if attempts_captchas < 3:
             response = "Неправильная последовательность символов. Попробуйте еще раз"
-            keyboard = get_main_menu_keyboard(user_data)
+            reply_keyboard, _ = get_main_menu_keyboard(user_data)
+            keyboard = reply_keyboard
         else:
             CaptchaService.ban_service_access(
                 user_id, RedisKeys.CAPTCHA_BAN_BONUSREPOST, redis_cursor
@@ -145,6 +154,7 @@ async def handler_bonus_repost_menu(
                 user_id, RedisKeys.CAPTCHA_BONUSREPOST, redis_cursor
             )
             response = "Вы превысили лимит попыток. Попробуйте позже."
-            keyboard = get_main_menu_keyboard(user_data)
+            reply_keyboard, _ = get_main_menu_keyboard(user_data)
+            keyboard = reply_keyboard
 
     await send_message(user_id, response, keyboard)

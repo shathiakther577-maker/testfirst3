@@ -338,18 +338,19 @@ class AviatorGameModel(BaseGameModel):
 
 
     @classmethod
-    def get_game_keyboard(cls, game_result: dict | None) -> ReplyKeyboardMarkup:
-
+    def get_game_keyboard(cls, game_result: dict | None) -> InlineKeyboardMarkup:
+        """Возвращает inline-клавиатуру игры для Telegram"""
+        
         buttons = [
             [
-                KeyboardButton(text="Банк"),
-                KeyboardButton(text="Повторить"),
-                KeyboardButton(text="Баланс")
+                InlineKeyboardButton(text="Банк", callback_data='{"event":"get_game_bank"}'),
+                InlineKeyboardButton(text="Повторить", callback_data='{"event":"repeat_bet"}'),
+                InlineKeyboardButton(text="Баланс", callback_data='{"event":"get_user_balance"}')
             ],
-            [KeyboardButton(text="Сделать ставку")]
+            [InlineKeyboardButton(text="Сделать ставку", callback_data='{"rate":"bet"}')]
         ]
 
-        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
     @staticmethod

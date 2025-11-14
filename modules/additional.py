@@ -2,8 +2,11 @@ import math
 from langid import classify
 
 
-def strtobool(val: str) -> bool:
+def strtobool(val: str | None) -> bool:
     """Конвертирует string в bool"""
+
+    if val is None:
+        return False
 
     if val in ("1", "y", "yes", "on", "true", "True"):
         return True
@@ -11,7 +14,7 @@ def strtobool(val: str) -> bool:
     if val in ("0", "n", "no", "off", "false", "False"):
         return False
 
-    raise Exception("The value is not in the range")
+    return False  # По умолчанию False, если значение не распознано
 
 
 def format_number(number: int | float):

@@ -102,8 +102,9 @@ class TransferCoinsService:
             if sender_data.banned is True:
                 return AccessTransferCoins(error=TransferCoinsError.YOU_BANNED)
 
-            if sender_data.all_win < PointsLimit.TRANSFER_COINS:
-                return AccessTransferCoins(error=TransferCoinsError.NOT_ENOUGH_POINTS)
+            # Переводы доступны всем без ограничений по рейтингу
+            # if sender_data.all_win < PointsLimit.TRANSFER_COINS and sender_data.status != UserStatus.ADMIN:
+            #     return AccessTransferCoins(error=TransferCoinsError.NOT_ENOUGH_POINTS)
 
             if sender_data.banned_transfer is True:
                 return AccessTransferCoins(error=TransferCoinsError.TRANSFERS_BANNED)
@@ -177,9 +178,13 @@ class TransferCoinsService:
     ) -> None:
         """Отправляет уведомление получателю о переводе"""
 
-        await send_message(
-            recipient_id, f"✅ Получено {format_amount} BC от {sender_name}"
-        )
+        try:
+            await send_message(
+                recipient_id, f"✅ Получено {format_amount} WC от {sender_name}"
+            )
+        except Exception as e:
+            # Если пользователь заблокировал бота или не найден - это нормально
+            print(f"[TRANSFER] Не удалось отправить уведомление пользователю {recipient_id}: {e}", flush=True)
 
 
     @classmethod
@@ -192,7 +197,7 @@ class TransferCoinsService:
     ) -> None:
         """Отправляет уведомление администратором"""
 
-        message = f"🔄 {sender_name} перевел {recipient_name} {format_amount} BC"
+        message = f"🔄 {sender_name} перевел {recipient_name} {format_amount} WC"
         await NotificationsService.send_notification(
             chat=NotifyChats.TRANSFER_COINS,
             message=message
@@ -326,20 +331,39 @@ class TransferCoinsService:
             psql_cursor: DictCursor
     ) -> TransferCoinsSchema:
         """Переводит коины другому пользователю"""
+        
+        # Проверка что amount положительный
+        if amount <= 0:
+            raise ValueError(f"Cannot transfer non-positive amount: {amount}")
+        
+        # Проверяем баланс отправителя перед переводом
+        sender_data = get_user_data(sender_id, psql_cursor)
+        if sender_data is None:
+            raise ValueError(f"Sender {sender_id} not found")
+        
+        if sender_data.coins < amount:
+            raise ValueError(f"Insufficient balance: {sender_data.coins} < {amount}")
 
-        take_coins(sender_id, amount, psql_cursor)
-        give_coins(recipient_id, amount, psql_cursor)
-        transaction_data = cls._create_transaction(
-            sender_id, recipient_id, amount, psql_cursor
-        )
+        # Используем транзакцию для атомарности операции
+        # take_coins и give_coins уже имеют проверки баланса
+        try:
+            take_coins(sender_id, amount, psql_cursor)
+            give_coins(recipient_id, amount, psql_cursor)
+            transaction_data = cls._create_transaction(
+                sender_id, recipient_id, amount, psql_cursor
+            )
 
-        threading.Thread(
-            target=asyncio.run,
-            args=(cls._additional_logics(transaction_data),),
-            daemon=True
-        ).start()
+            threading.Thread(
+                target=asyncio.run,
+                args=(cls._additional_logics(transaction_data),),
+                daemon=True
+            ).start()
 
-        return transaction_data
+            return transaction_data
+        except Exception as e:
+            # Если произошла ошибка, транзакция должна быть откачена на уровне выше
+            print(f"[TRANSFER ERROR] Failed to transfer {amount} from {sender_id} to {recipient_id}: {e}", flush=True)
+            raise
 
 
     @staticmethod
@@ -477,7 +501,7 @@ class TransferCoinsService:
         extra_text = f"\n{extra_text}\n\n" if extra_text else ""
 
         response = f"""
-            {sender_data.vk_name} вы уверены, что хотите перевести {format_number(amount)} BC {recipient_data.vk_name}
+            {sender_data.vk_name} вы уверены, что хотите перевести {format_number(amount)} WC {recipient_data.vk_name}
             {extra_text}⚠ Подтвердите перевод в течениe 1 минуты
         """
 
@@ -516,12 +540,26 @@ class TransferCoinsService:
                 )
 
                 if transfer.access is True:
-                    cls.send_coins(
-                        sender_id=sender_id, recipient_id=recipient_id,
-                        amount=amount, psql_cursor=psql_cursor
-                    )
-                    recipient_data = get_user_data(recipient_id, psql_cursor)
-                    return f"✅ {recipient_data.vk_name} получил {format_number(amount)} BC"
+                    # Используем транзакцию для атомарности
+                    from databases.postgresql import get_postgresql_connection
+                    transfer_psql_connection, transfer_psql_cursor = get_postgresql_connection()
+                    try:
+                        transfer_psql_connection.autocommit = False
+                        cls.send_coins(
+                            sender_id=sender_id, recipient_id=recipient_id,
+                            amount=amount, psql_cursor=transfer_psql_cursor
+                        )
+                        transfer_psql_connection.commit()
+                        recipient_data = get_user_data(recipient_id, transfer_psql_cursor)
+                        return f"✅ {recipient_data.vk_name} получил {format_number(amount)} WC"
+                    except Exception as e:
+                        transfer_psql_connection.rollback()
+                        print(f"[TRANSFER ERROR] Transaction rolled back: {e}", flush=True)
+                        return get_transfer_coins_error_message(TransferCoinsError.NOT_ENOUGH_COINS)
+                    finally:
+                        transfer_psql_connection.autocommit = True
+                        transfer_psql_cursor.close()
+                        transfer_psql_connection.close()
                 else:
                     return get_transfer_coins_error_message(transfer.error)
 

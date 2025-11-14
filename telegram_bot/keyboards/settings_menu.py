@@ -17,8 +17,8 @@ def get_settings_menu_keyboard(user_data: UserSchema) -> ReplyKeyboardMarkup:
             KeyboardButton(text="Обновить ключ api")
         ],
         [
-            KeyboardButton(text="Сменить имя"),
-            KeyboardButton(text="Описание")
+            KeyboardButton(text="Ник"),
+            KeyboardButton(text="Тег клана")
         ],
         [KeyboardButton(text="Назад")]
     ]

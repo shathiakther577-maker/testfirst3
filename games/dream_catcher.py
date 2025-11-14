@@ -266,27 +266,28 @@ class DreamCatcherGameModel(BaseGameModel):
 
 
     @classmethod
-    def get_game_keyboard(cls, game_result: dict | None) -> ReplyKeyboardMarkup:
-
+    def get_game_keyboard(cls, game_result: dict | None) -> InlineKeyboardMarkup:
+        """Возвращает inline-клавиатуру игры для Telegram"""
+        
         buttons = [
             [
-                KeyboardButton(text="Банк"),
-                KeyboardButton(text="Повторить"),
-                KeyboardButton(text="Баланс")
+                InlineKeyboardButton(text="Банк", callback_data='{"event":"get_game_bank"}'),
+                InlineKeyboardButton(text="Повторить", callback_data='{"event":"repeat_bet"}'),
+                InlineKeyboardButton(text="Баланс", callback_data='{"event":"get_user_balance"}')
             ],
             [
-                KeyboardButton(text="x1"),
-                KeyboardButton(text="x2"),
-                KeyboardButton(text="x5")
+                InlineKeyboardButton(text="x1", callback_data='{"rate":"1"}'),
+                InlineKeyboardButton(text="x2", callback_data='{"rate":"2"}'),
+                InlineKeyboardButton(text="x5", callback_data='{"rate":"5"}')
             ],
             [
-                KeyboardButton(text="x10"),
-                KeyboardButton(text="x20"),
-                KeyboardButton(text="x40")
+                InlineKeyboardButton(text="x10", callback_data='{"rate":"10"}'),
+                InlineKeyboardButton(text="x20", callback_data='{"rate":"20"}'),
+                InlineKeyboardButton(text="x40", callback_data='{"rate":"40"}')
             ]
         ]
 
-        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
     @classmethod

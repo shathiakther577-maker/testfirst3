@@ -13,6 +13,7 @@ from schemas.payments import PaymentSchema
 from schemas.auto_game import AutoGameSchema
 from schemas.promocodes import PromoCodeSchema, ActivatedPromoCode
 from schemas.bonus_repost import BonusPostSchema, BonusRepostLogSchema
+from schemas.bonus_subscription import BonusSubscriptionSchema, BonusSubscriptionLogSchema
 from schemas.user_in_chat import UserChatSchema
 from schemas.access_tokens import AccessTokensSchema
 from schemas.transfer_coins import TransferCoinsSchema
@@ -47,6 +48,9 @@ def delete_tables(psql_cursor: DictCursor) -> None:
 
         BonusPostSchema.__tablename__,
         BonusRepostLogSchema.__tablename__,
+
+        BonusSubscriptionSchema.__tablename__,
+        BonusSubscriptionLogSchema.__tablename__,
 
         PaymentSchema.__tablename__
     ]
@@ -84,7 +88,7 @@ def create_tables(psql_cursor: DictCursor) -> None:
             menu VARCHAR(32) NOT NULL DEFAULT '{UserMenu.MAIN.value}',
             status VARCHAR(16) NOT NULL DEFAULT '{UserStatus.USER.value}',
 
-            coins BIGINT NOT NULL DEFAULT 0,
+            coins BIGINT NOT NULL DEFAULT 0 CHECK (coins >= 0),
             rubles BIGINT NOT NULL DEFAULT 0,
 
             clan_id BIGINT DEFAULT NULL,
@@ -323,6 +327,26 @@ def create_tables(psql_cursor: DictCursor) -> None:
     """)
 
     psql_cursor.execute(f"""
+        CREATE TABLE {BonusSubscriptionSchema.__tablename__} (
+            id BIGSERIAL NOT NULL,
+            reward BIGINT NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            PRIMARY KEY (id)
+        )
+    """)
+
+    psql_cursor.execute(f"""
+        CREATE TABLE {BonusSubscriptionLogSchema.__tablename__} (
+            user_id BIGINT NOT NULL,
+            bonus_id BIGINT NOT NULL,
+            reward BIGINT NOT NULL,
+            received_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, bonus_id)
+        )
+    """)
+
+    psql_cursor.execute(f"""
         CREATE TABLE {PaymentSchema.__tablename__} (
             tx_id BIGINT NOT NULL,
             name VARCHAR(64) NOT NULL,
@@ -334,6 +358,22 @@ def create_tables(psql_cursor: DictCursor) -> None:
             accepted_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
     """)
+
+
+def add_coins_constraint(psql_cursor: DictCursor) -> None:
+    """Добавляет CHECK constraint для coins >= 0 если его нет"""
+    try:
+        psql_cursor.execute("""
+            ALTER TABLE users
+            ADD CONSTRAINT users_coins_non_negative CHECK (coins >= 0)
+        """)
+        print("✅ CHECK constraint для coins >= 0 добавлен")
+    except Exception as e:
+        # Constraint уже существует или другая ошибка
+        if "already exists" in str(e) or "duplicate" in str(e).lower():
+            print("ℹ️  CHECK constraint для coins >= 0 уже существует")
+        else:
+            print(f"⚠️  Не удалось добавить constraint: {e}")
 
 
 if __name__ == "__main__":
@@ -348,6 +388,17 @@ if __name__ == "__main__":
         except Exception:
             traceback.print_exc()
 
+        finally:
+            psql_cursor.close()
+            psql_connection.close()
+    else:
+        # В production режиме только добавляем constraint если его нет
+        try:
+            psql_connection, psql_cursor = get_postgresql_connection()
+            add_coins_constraint(psql_cursor)
+            psql_connection.commit()
+        except Exception:
+            traceback.print_exc()
         finally:
             psql_cursor.close()
             psql_connection.close()

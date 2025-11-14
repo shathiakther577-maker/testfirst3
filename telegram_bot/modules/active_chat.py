@@ -1,5 +1,6 @@
 from psycopg2.extras import DictCursor
 
+from games.base import BaseGameModel
 from schemas.users import UserSchema
 from schemas.chats import ChatSchema, ChatHelperStatus
 from schemas.games import Games
@@ -23,7 +24,7 @@ def handler_change_chat_name(
     if len(chat_name) > 50:
         return "❌ Имя чата должно содержать не более 50 символов"
 
-    ChatsService.update_name(chat_data.chat_id, chat_name, psql_cursor)
+    ChatsService.update_chat_name(chat_data.chat_id, chat_name, psql_cursor)
     return f"Новое название чата: {chat_name}"
 
 
@@ -32,11 +33,40 @@ def handler_change_game_mode(
         chat_data: ChatSchema,
         game_mode: Games,
         psql_cursor: DictCursor
-) -> tuple[str, None]:
+) -> tuple[str, str]:
     """Обрабатывает смену игрового режима"""
 
-    ChatsService.update_new_game_mode(chat_data.chat_id, game_mode, psql_cursor)
-    return f"✅ Игровой режим изменен на {game_mode.value}", None
+    # Обновляем режим игры в чате
+    ChatsService.update_game_mode(chat_data.chat_id, game_mode, psql_cursor)
+    
+    # Создаем новую игру для нового режима
+    game_model = BaseGameModel.GAMES_MODEL[game_mode]
+    game_model.create_game(chat_data.chat_id, psql_cursor)
+    
+    # Получаем ID новой игры
+    psql_cursor.execute(
+        "SELECT game_id FROM games WHERE chat_id = %s AND game_mode = %s ORDER BY game_id DESC LIMIT 1",
+        [chat_data.chat_id, game_mode.value]
+    )
+    new_game = psql_cursor.fetchone()
+    if new_game:
+        new_game_id = new_game["game_id"]
+        # Обновляем game_id в чате
+        psql_cursor.execute(
+            "UPDATE chats SET game_id = %s WHERE chat_id = %s",
+            [new_game_id, chat_data.chat_id]
+        )
+    
+    # Получаем новую игру и клавиатуру
+    psql_cursor.execute("SELECT * FROM games WHERE game_id = %s", [new_game_id])
+    game_data_dict = psql_cursor.fetchone()
+    import json
+    game_data_dict["game_result"] = json.loads(game_data_dict["game_result"])
+    
+    # Возвращаем новую клавиатуру
+    new_keyboard = game_model.get_game_keyboard(game_data_dict["game_result"])
+    
+    return f"✅ Игровой режим изменен на {game_mode.value}", new_keyboard
 
 
 def handler_change_game_timer(
@@ -90,10 +120,17 @@ async def handler_del_helper(
     return f"✅ Помощник удален"
 
 
-def get_user_balance_message(user_data: UserSchema) -> str:
+def get_user_balance_message(user_data: UserSchema, psql_cursor: DictCursor | None = None) -> str:
     """Возвращает сообщение с балансом пользователя"""
-
-    return f"Ваш баланс: {format_number(user_data.coins)} BC"
+    
+    # Если передан psql_cursor, загружаем актуальный баланс из БД
+    if psql_cursor:
+        from modules.databases.users import get_user_data
+        fresh_user_data = get_user_data(user_data.user_id, psql_cursor)
+        if fresh_user_data:
+            user_data = fresh_user_data
+    
+    return f"Ваш баланс: {format_number(user_data.coins)} WC"
 
 
 async def handler_change_chat_owner(

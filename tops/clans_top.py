@@ -134,7 +134,7 @@ class ClansTopService(BaseTopService):
 
             response += f"\n{position}) {winner_name} - {format_number(winner_points)} коинов"
             if cls.can_get_reward(winner_points, reward, position):
-                response += f" (приз {reduce_number(reward[position])} BC)"
+                response += f" (приз {reduce_number(reward[position])} WC)"
 
         if data.clan_id != None:
             clan_position = cls.get_position(data.clan_id, psql_cursor)
@@ -251,7 +251,7 @@ class ClansTopService(BaseTopService):
                             peer_id=user_id,
                             message=f"""
                                 🏆 Неделя подошла к концу, Ваш клан занял {clan_position} место
-                                🚀 {user_reward} BC уже на твоем балансе
+                                🚀 {user_reward} WC уже на твоем балансе
                             """
                         ))
                         admin_message += f"\n{clan_position}.{member_position}) {user_name} - наиграл {user_points} выиграл {user_reward}"

@@ -59,7 +59,7 @@ def get_main_menu_keyboard(user_data: UserSchema) -> str:
 
     if TopSettings.SWITCH_COINS_TOP:
         keyboard.add_button(
-            label=f"🎆 Топ в честь праздника на {reduce_number(sum(CoinsTop.REWARDS.values()))} BC"
+            label=f"🎆 Топ в честь праздника на {reduce_number(sum(CoinsTop.REWARDS.values()))} WC"
                 if validate_rewards(CoinsTop) and TopSettings.SWITCH_COINS_TOP else
             "🎆 Топ в честь праздника",
             color=VkKeyboardColor.NEGATIVE,
@@ -80,7 +80,7 @@ def get_main_menu_keyboard(user_data: UserSchema) -> str:
 
     if TopSettings.SWITCH_WEEK_TOP:
         keyboard.add_button(
-            label=f"🎄 Топ недели на {reduce_number(sum(WeekTop.REWARDS.values()))} BC"
+            label=f"🎄 Топ недели на {reduce_number(sum(WeekTop.REWARDS.values()))} WC"
                 if validate_rewards(WeekTop) and TopSettings.SWITCH_WEEK_TOP else
             "🎄 Топ недели",
             color=VkKeyboardColor.NEGATIVE,
@@ -101,7 +101,7 @@ def get_main_menu_keyboard(user_data: UserSchema) -> str:
 
     if TopSettings.SWITCH_DAY_TOP:
         keyboard.add_button(
-            label=f"❄ Топ дня на {reduce_number(sum(DayTop.REWARDS.values()))} BC"
+            label=f"❄ Топ дня на {reduce_number(sum(DayTop.REWARDS.values()))} WC"
                 if validate_rewards(DayTop) and TopSettings.SWITCH_DAY_TOP else
             "❄ Топ дня",
             color=VkKeyboardColor.NEGATIVE,
@@ -110,7 +110,7 @@ def get_main_menu_keyboard(user_data: UserSchema) -> str:
 
     if TopSettings.SWITCH_CLANS_TOP:
         keyboard.add_button(
-            label=f"🎁 Топ кланов на {reduce_number(sum(ClansTop.REWARDS.values()))} BC"
+            label=f"🎁 Топ кланов на {reduce_number(sum(ClansTop.REWARDS.values()))} WC"
                 if validate_rewards(ClansTop) and TopSettings.SWITCH_CLANS_TOP else
             "🎁 Топ кланов",
             color=VkKeyboardColor.NEGATIVE,

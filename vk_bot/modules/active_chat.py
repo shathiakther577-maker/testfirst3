@@ -26,7 +26,7 @@ def get_user_balance_message(user_data: UserSchema) -> str:
     user_rubles = user_data.rubles
 
     if user_coins > 0:
-        response = f"{user_name}, твой баланс: {format_number(user_coins)} BC"
+        response = f"{user_name}, твой баланс: {format_number(user_coins)} WC"
     else:
         response = f"{user_name}, на твоем балансе нет коинов..."
 

@@ -28,7 +28,8 @@ async def handler_services_menu(
 
     if message == "назад":
         response = BACK_MAIN_MENU
-        keyboard = get_main_menu_keyboard(user_data)
+        reply_keyboard, _ = get_main_menu_keyboard(user_data)
+        keyboard = reply_keyboard
         update_user_menu(user_id, UserMenu.MAIN, psql_cursor)
 
     elif message == "промокоды" and user_data.banned_promo is True:

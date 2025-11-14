@@ -45,6 +45,9 @@ def get_game_data(
         "game_id": game_id
     })
     psql_response = psql_cursor.fetchone()
+    if psql_response is None:
+        return None
+    
     psql_response["game_result"] = json.loads(psql_response["game_result"])
     game_data = GameSchema(**psql_response)
 

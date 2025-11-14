@@ -51,6 +51,10 @@ class ChatsTopService(BaseTopService):
         days_until_friday = (4 - current_weekday) % 7
         # Вычисляем, сколько дней осталось до пятницы (0 - если сегодня пятница)
 
+        # Проверяем что значения дней неотрицательные и разумные (защита от ошибок вычислений)
+        days_since_last_saturday = max(0, min(days_since_last_saturday, 365))  # Ограничиваем до года
+        days_until_friday = max(0, min(days_until_friday, 365))  # Ограничиваем до года
+        
         return f"""
             WHERE DATE(rates.created_at) >= DATE(NOW() - INTERVAL '{days_since_last_saturday} DAY') AND
                   DATE(rates.created_at) <= DATE(NOW() + INTERVAL '{days_until_friday} DAY')
@@ -189,7 +193,7 @@ class ChatsTopService(BaseTopService):
 
             response += f"\n{position}) {winner_name} - наиграл {format_number(winner_points)}"
             if cls.can_get_reward(winner_points, reward, position):
-                response += f" (приз {reduce_number(int(top_bank * reward[position]))} BC)"
+                response += f" (приз {reduce_number(int(top_bank * reward[position]))} WC)"
 
         response += f"\n\nТекущий чат находится на {cls.get_position(data, psql_cursor)} месте"
 
@@ -241,7 +245,7 @@ class ChatsTopService(BaseTopService):
                         peer_id=owner_id,
                         message=f"""
                             🏆 Твой чат {winner_name} занял {position} место в топе чатов
-                            🚀 {owner_reward} BC уже на твоем балансе
+                            🚀 {owner_reward} WC уже на твоем балансе
                         """
                     ))
                     admin_message += f"\n{position}) {winner_name} - наиграл {winner_points} выиграл {owner_reward}"

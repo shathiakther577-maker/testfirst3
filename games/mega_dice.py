@@ -272,43 +272,44 @@ class MegaDiceGameModel(BaseGameModel):
 
 
     @classmethod
-    def get_game_keyboard(cls, game_result: dict | None) -> ReplyKeyboardMarkup:
-
+    def get_game_keyboard(cls, game_result: dict | None) -> InlineKeyboardMarkup:
+        """Возвращает inline-клавиатуру игры для Telegram"""
+        
         buttons = [
             [
-                KeyboardButton(text="Банк"),
-                KeyboardButton(text="Повторить"),
-                KeyboardButton(text="Баланс")
+                InlineKeyboardButton(text="Банк", callback_data='{"event":"get_game_bank"}'),
+                InlineKeyboardButton(text="Повторить", callback_data='{"event":"repeat_bet"}'),
+                InlineKeyboardButton(text="Баланс", callback_data='{"event":"get_user_balance"}')
             ],
             [
-                KeyboardButton(text="Красное (x1.9)"),
-                KeyboardButton(text="Черное (x1.9)")
+                InlineKeyboardButton(text="Красное (x1.9)", callback_data='{"rate":"red"}'),
+                InlineKeyboardButton(text="Черное (x1.9)", callback_data='{"rate":"black"}')
             ],
             [
-                KeyboardButton(text="2 (x34)"),
-                KeyboardButton(text="3 (x17)"),
-                KeyboardButton(text="4 (x11)")
+                InlineKeyboardButton(text="2 (x34)", callback_data='{"rate":"2"}'),
+                InlineKeyboardButton(text="3 (x17)", callback_data='{"rate":"3"}'),
+                InlineKeyboardButton(text="4 (x11)", callback_data='{"rate":"4"}')
             ],
             [
-                KeyboardButton(text="5 (x8)"),
-                KeyboardButton(text="6 (x6)"),
-                KeyboardButton(text="7 (x5.8)"),
-                KeyboardButton(text="8 (x6)")
+                InlineKeyboardButton(text="5 (x8)", callback_data='{"rate":"5"}'),
+                InlineKeyboardButton(text="6 (x6)", callback_data='{"rate":"6"}'),
+                InlineKeyboardButton(text="7 (x5.8)", callback_data='{"rate":"7"}'),
+                InlineKeyboardButton(text="8 (x6)", callback_data='{"rate":"8"}')
             ],
             [
-                KeyboardButton(text="9 (x8)"),
-                KeyboardButton(text="10 (x11)"),
-                KeyboardButton(text="11 (x17)"),
-                KeyboardButton(text="12 (x34)")
+                InlineKeyboardButton(text="9 (x8)", callback_data='{"rate":"9"}'),
+                InlineKeyboardButton(text="10 (x11)", callback_data='{"rate":"10"}'),
+                InlineKeyboardButton(text="11 (x17)", callback_data='{"rate":"11"}'),
+                InlineKeyboardButton(text="12 (x34)", callback_data='{"rate":"12"}')
             ],
             [
-                KeyboardButton(text="2-4 (x5)"),
-                KeyboardButton(text="5-8 (x1.5)"),
-                KeyboardButton(text="9-12 (x3)")
+                InlineKeyboardButton(text="2-4 (x5)", callback_data='{"rate":"2-4"}'),
+                InlineKeyboardButton(text="5-8 (x1.5)", callback_data='{"rate":"5-8"}'),
+                InlineKeyboardButton(text="9-12 (x3)", callback_data='{"rate":"9-12"}')
             ]
         ]
 
-        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
     @classmethod

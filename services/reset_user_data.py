@@ -26,8 +26,8 @@ class ResetUserData(BaseModel):
         """Возвращает текст сколько и где было списано"""
 
         return f"""
-            {format_number(self.balance)} BC с баланса обнулены
-            {format_number(self.promocode)} BC с промокодов обнулены
+            {format_number(self.balance)} WC с баланса обнулены
+            {format_number(self.promocode)} WC с промокодов обнулены
         """
 
 

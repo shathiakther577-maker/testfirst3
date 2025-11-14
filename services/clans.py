@@ -2,7 +2,6 @@ import random
 from typing import Optional
 
 from redis.client import Redis
-from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from psycopg2.extras import DictCursor
 
 from settings import TelegramBotSettings, ClanSettings
@@ -17,12 +16,43 @@ from modules.databases.users import get_user_data, update_user_menu, \
     update_user_extra_data
 from modules.telegram.bot import send_message, send_keyboard
 
+# Для совместимости с VK (если нужно)
+try:
+    from vk_api.keyboard import VkKeyboard, VkKeyboardColor
+except ImportError:
+    # Если vk_api не установлен, создаем заглушки
+    class VkKeyboard:
+        def __init__(self, *args, **kwargs):
+            pass
+        def add_button(self, *args, **kwargs):
+            return self
+        def add_line(self, *args, **kwargs):
+            return self
+        def get(self, *args, **kwargs):
+            return ""
+    class VkKeyboardColor:
+        POSITIVE = "positive"
+        NEGATIVE = "negative"
+        PRIMARY = "primary"
+        SECONDARY = "secondary"
+
 from vk_bot.template_messages import CLAN_GREETING, CLAN_NOT_FOUND, CLAN_IS_CLOSED, \
     YOU_HAVE_CLAN, APPLICATION_SENT, APPLICATION_ALREADY_SENT, DATA_OUTDATED, \
     MAX_COUNT_MEMBERS_IN_CLAN, NOT_OVERCOME_CLAN_BARRIER
 from vk_bot.keyboards.pages import add_back_page, add_next_page
-from vk_bot.keyboards.clans_menu import get_clan_join_keyboard, get_clan_menu_keyboard, \
-    get_clan_member_keyboard, get_keyboard_answer_owner_clan
+# Импорты клавиатур - используем Telegram версии если доступны, иначе VK
+try:
+    from telegram_bot.keyboards.clans_menu import get_clan_join_keyboard, get_clan_menu_keyboard, \
+        get_clan_member_keyboard, get_clan_owner_keyboard
+except ImportError:
+    # Fallback на VK версии
+    from vk_bot.keyboards.clans_menu import get_clan_join_keyboard, get_clan_menu_keyboard, \
+        get_clan_member_keyboard, get_keyboard_answer_owner_clan
+    # Для VK get_clan_owner_keyboard может называться по-другому
+    try:
+        from vk_bot.keyboards.clans_menu import get_clan_owner_keyboard
+    except ImportError:
+        get_clan_owner_keyboard = get_clan_menu_keyboard  # Fallback
 
 
 class ClanService:
@@ -429,17 +459,22 @@ class ClanService:
     ) -> tuple[str, str | None]:
         """Направляет пользователя в меню кланов"""
 
+        update_user_menu(user_data.user_id, UserMenu.CLANS, psql_cursor)
+        
         if user_data.clan_role == ClanRole.NOT:
-            response, keyboard = cls.get_clans_message(psql_cursor)
-
+            # Не отправляем сообщение, только клавиатуру
+            response = "Кланы"  # Минимальное сообщение для отправки клавиатуры
+            keyboard = get_create_clan_keyboard()
+            # Обновляем extra_data для меню создания клана
+            update_user_extra_data(user_data.user_id, ExtraCreateClan(), psql_cursor)
         else:
             response, _ = cls.get_clan_info_message(
                 psql_cursor, clan_id=user_data.clan_id, user_data=user_data
             )
             keyboard = get_clan_menu_keyboard(user_data)
-
-        await cls.send_keyboard_clan_menu(user_data, psql_cursor)
-        update_user_menu(user_data.user_id, UserMenu.CLANS, psql_cursor)
+            # Обновляем extra_data для владельца клана
+            if user_data.clan_role == ClanRole.OWNER:
+                update_user_extra_data(user_data.user_id, ExtraOwnerClan(), psql_cursor)
 
         return response, keyboard
 

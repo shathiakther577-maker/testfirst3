@@ -122,12 +122,12 @@ class CoinsTopService(BaseTopService):
 
             response += f"\n{position}) {winner_name} выиграл {format_number(winner_points)} коинов"
             if cls.can_get_reward(winner_points, reward, position):
-                response += f" (приз {reduce_number(reward[position])} BC)"
+                response += f" (приз {reduce_number(reward[position])} WC)"
 
         user_position = cls.get_position(data, psql_cursor)
         response += f"\n\nТы находишься на {user_position} месте, выиграв {format_number(data.coins_top_points)} коинов"
         if cls.can_get_reward(data.coins_top_points, reward, user_position):
-            response += f"\n💰 Возможный выигрыш: {reduce_number(reward[user_position])} BC"
+            response += f"\n💰 Возможный выигрыш: {reduce_number(reward[user_position])} WC"
 
         if TopSettings.DATETIME_COINS_TOP:
             response += f"\n📢 Итоги розыгрыша {TopSettings.DATETIME_COINS_TOP} в 00:00"
@@ -197,7 +197,7 @@ class CoinsTopService(BaseTopService):
                         peer_id=user_id,
                         message=f"""
                             🎆 {user_name}, ты занял {position} место в праздничном топе
-                            🚀 {user_reward} BC уже на твоем балансе
+                            🚀 {user_reward} WC уже на твоем балансе
                         """
                     ))
                     admin_message += f"\n{position}) {user_name} - наиграл {user_points} выиграл {user_reward}"

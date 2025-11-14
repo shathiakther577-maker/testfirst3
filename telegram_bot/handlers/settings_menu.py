@@ -29,10 +29,11 @@ async def handler_settings_menu(
 
     if message == "назад":
         response = BACK_MAIN_MENU
-        keyboard = get_main_menu_keyboard(user_data)
+        reply_keyboard, _ = get_main_menu_keyboard(user_data)
+        keyboard = reply_keyboard
         update_user_menu(user_id, UserMenu.MAIN, psql_cursor)
 
-    elif "показывать баланс" in message.lower():
+    elif "показывать баланс" in message.lower() or message in ["✅ Показывать баланс", "❌ Показывать баланс"]:
 
         if user_data.show_balance is True:
             response = "Ваш баланс будет скрыт и его никто не увидит"
@@ -49,7 +50,7 @@ async def handler_settings_menu(
             "user_id": user_id
         })
 
-    elif "рассылка" in message.lower():
+    elif "рассылка" in message.lower() or message in ["✅ Рассылка", "❌ Рассылка"]:
 
         if user_data.mailing is True:
             response = "❌ Вы отписались от рассылки"
@@ -66,19 +67,19 @@ async def handler_settings_menu(
             "user_id": user_id
         })
 
-    elif "получить ключ api" in message.lower():
+    elif "получить ключ api" in message.lower() or message == "Получить ключ api":
         access_token = ApiAccessTokensService.get_or_create_access_token(
             user_id=user_id, psql_cursor=psql_cursor
         )
         response = ApiAccessTokensService.format_message(access_token)
 
-    elif "обновить ключ api" in message.lower():
+    elif "обновить ключ api" in message.lower() or message == "Обновить ключ api":
         access_token = ApiAccessTokensService.update_user_access_token(
             user_id=user_id, psql_cursor=psql_cursor
         )
         response = ApiAccessTokensService.format_message(access_token)
 
-    elif "сменить имя" in message.lower() or message == "ник":
+    elif "сменить имя" in message.lower() or message in ["Сменить имя", "ник"]:
         service_cost = 0 if user_data.free_nick_change else ServicesCosts.CHANGE_USER_NAME
         format_services_cost = format_number(service_cost)
 
@@ -94,7 +95,7 @@ async def handler_settings_menu(
         else:
             response = f"""
                 {NOT_ENOUGH_COINS}
-                Стоимость смены имени - {format_services_cost} BC
+                Стоимость смены имени - {format_services_cost} WC
             """
 
     elif "тег клана" in message.lower():

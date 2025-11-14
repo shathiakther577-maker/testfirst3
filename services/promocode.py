@@ -206,7 +206,7 @@ class PromoCodeService:
         cls.add_promocode_activation(user_id, promocode_name, psql_cursor)
 
         admin_message = f"""
-            {user_data.vk_name} активировал промо {promocode_name} и получили {promocode_reward} BC
+            {user_data.vk_name} активировал промо {promocode_name} и получили {promocode_reward} WC
         """
         await NotificationsService.send_notification(NotifyChats.PROMOCODE, admin_message)
 
@@ -313,7 +313,7 @@ class PromoCodeService:
                     )
                     await send_message(
                         peer_id=owner_id,
-                        message=f"Промокод {promocode_name} истек, {refund_amount} BC возвращены на баланс"
+                        message=f"Промокод {promocode_name} истек, {refund_amount} WC возвращены на баланс"
                     )
 
             except:

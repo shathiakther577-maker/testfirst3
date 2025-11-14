@@ -136,23 +136,27 @@ class DoubleGameModel(BaseGameModel):
 
 
     @classmethod
-    def get_game_keyboard(cls, game_result: dict | None) -> ReplyKeyboardMarkup:
-
+    def get_game_keyboard(cls, game_result: dict | None) -> InlineKeyboardMarkup:
+        """Возвращает inline-клавиатуру игры для Telegram"""
+        
         buttons = [
             [
-                KeyboardButton(text="Банк"),
-                KeyboardButton(text="Повторить"),
-                KeyboardButton(text="Баланс")
+                InlineKeyboardButton(text="Банк", callback_data='{"event":"get_game_bank"}'),
+                InlineKeyboardButton(text="Повторить", callback_data='{"event":"repeat_bet"}'),
+                InlineKeyboardButton(text="Баланс", callback_data='{"event":"get_user_balance"}')
             ],
             [
-                KeyboardButton(text="x2"),
-                KeyboardButton(text="x3"),
-                KeyboardButton(text="x5")
+                InlineKeyboardButton(text="x2", callback_data='{"rate":"2"}'),
+                InlineKeyboardButton(text="x3", callback_data='{"rate":"3"}'),
+                InlineKeyboardButton(text="x5", callback_data='{"rate":"5"}')
             ],
-            [KeyboardButton(text="x50")]
+            [
+                InlineKeyboardButton(text="x50", callback_data='{"rate":"50"}'),
+                InlineKeyboardButton(text="🔄 Обновить", callback_data='{"event":"refresh_keyboard"}')
+            ]
         ]
 
-        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
     @classmethod
@@ -171,6 +175,18 @@ class DoubleGameModel(BaseGameModel):
             rate_type = payload.get("rate_type")
             cls.update_current_rate(chat_data.chat_id, user_data.user_id, rate_type, psql_cursor)
             return cls.get_keyboard_pay_rates(chat_data, user_chat_data, rate_type, game_result, psql_cursor)
+        
+        # Обработка кнопок с суммами ставок (payload содержит "amount" без "event")
+        if payload is not None and payload.get("amount") is not None and payload.get("event") is None:
+            amount = payload.get("amount")
+            rate_type = user_chat_data.current_rate
+            
+            if rate_type is None:
+                return "❌ Сначала выберите тип ставки", None
+            
+            # Возвращаем сумму как сообщение, чтобы оно обработалось как текстовая ставка
+            # Это будет обработано в handler_active_chat как текстовое сообщение
+            return None
 
         return None
 

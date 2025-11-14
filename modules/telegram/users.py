@@ -55,21 +55,140 @@ async def get_user_id(link: str) -> int | None:
     """Возвращает идентификатор пользователя по ссылке или username"""
 
     try:
+        from telegram import Bot
         bot = Bot(token=TelegramBotSettings.BOT_TOKEN)
         
         # Если это числовой ID
-        if link.isdigit():
-            return int(link)
+        if link.strip().isdigit():
+            user_id = int(link.strip())
+            # Синхронизируем username для этого пользователя
+            try:
+                await sync_user_data(user_id)
+            except:
+                pass
+            return user_id
         
-        # Если это username (без @)
+        # Если это username (с @ или без)
         username = link.replace("@", "").strip()
         if username:
+            try:
+                # Пытаемся получить пользователя из Telegram API
             user = await bot.get_chat(f"@{username}")
-            return user.id
+                user_id = user.id
+                
+                # Синхронизируем данные пользователя с БД
+                try:
+                    await sync_user_data(user_id)
+                except Exception as sync_error:
+                    print(f"[DEBUG] Failed to sync user data for {user_id}: {sync_error}", flush=True)
+                
+                return user_id
+            except Exception as e:
+                print(f"[DEBUG] Failed to get user by username @{username} from Telegram API: {e}", flush=True)
+                # Пробуем найти в БД по username
+                from databases.postgresql import get_postgresql_connection
+                conn, cur = get_postgresql_connection()
+                try:
+                    # Сначала ищем по telegram_username (самый точный способ)
+                    cur.execute("""
+                        SELECT user_id FROM users 
+                        WHERE LOWER(telegram_username) = LOWER(%s)
+                        LIMIT 1
+                    """, (username,))
+                    result = cur.fetchone()
+                    if result:
+                        user_id = result["user_id"]
+                        print(f"[DEBUG] Found user by telegram_username: {user_id}", flush=True)
+                        # Пытаемся синхронизировать данные
+                        try:
+                            await sync_user_data(user_id)
+                        except:
+                            pass
+                        return user_id
+                    
+                    # Если не нашли, ищем по full_name (точное совпадение)
+                    cur.execute("""
+                        SELECT user_id FROM users 
+                        WHERE LOWER(full_name) = LOWER(%s)
+                        LIMIT 1
+                    """, (username,))
+                    result = cur.fetchone()
+                    if result:
+                        user_id = result["user_id"]
+                        print(f"[DEBUG] Found user by full_name (exact): {user_id}", flush=True)
+                        # Пытаемся синхронизировать данные
+                        try:
+                            await sync_user_data(user_id)
+                        except:
+                            pass
+                        return user_id
+                    
+                    # Если не нашли, пробуем частичное совпадение по full_name
+                    cur.execute("""
+                        SELECT user_id FROM users 
+                        WHERE LOWER(full_name) LIKE LOWER(%s)
+                        LIMIT 1
+                    """, (f"%{username}%",))
+                    result = cur.fetchone()
+                    if result:
+                        user_id = result["user_id"]
+                        print(f"[DEBUG] Found user by full_name (partial): {user_id}", flush=True)
+                        try:
+                            await sync_user_data(user_id)
+                        except:
+                            pass
+                        return user_id
+                    
+                    print(f"[DEBUG] User not found in database: {username}", flush=True)
+                finally:
+                    cur.close()
+                    conn.close()
         
         return None
-    except:
+    except Exception as e:
+        print(f"[DEBUG] Error in get_user_id for '{link}': {e}", flush=True)
+        import traceback
+        traceback.print_exc()
         return None
+
+
+async def sync_user_data(user_id: int) -> bool:
+    """Синхронизирует данные пользователя с Telegram API"""
+    
+    try:
+        from telegram import Bot
+        from databases.postgresql import get_postgresql_connection
+        
+        bot = Bot(token=TelegramBotSettings.BOT_TOKEN)
+        
+        # Получаем актуальные данные из Telegram
+        user = await bot.get_chat(user_id)
+        
+        # Обновляем в БД
+        conn, cur = get_postgresql_connection()
+        try:
+            full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+            if not full_name:
+                full_name = user.username or f"User {user_id}"
+            
+            telegram_username = user.username or None
+            
+            cur.execute("""
+                UPDATE users
+                SET full_name = %s,
+                    telegram_username = %s
+                WHERE user_id = %s
+            """, (full_name, telegram_username, user_id))
+            conn.commit()
+            
+            print(f"[SYNC] Updated user {user_id} data: full_name={full_name}", flush=True)
+            return True
+        finally:
+            cur.close()
+            conn.close()
+    except Exception as e:
+        print(f"[SYNC ERROR] Failed to sync user {user_id}: {e}", flush=True)
+        return False
 
 
 async def get_user_friends(user_id: int) -> list[int]:

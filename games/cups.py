@@ -168,28 +168,33 @@ class CupsGameModel(BaseGameModel):
 
 
     @classmethod
-    def get_game_keyboard(cls, game_result: dict | None) -> ReplyKeyboardMarkup:
-
+    def get_game_keyboard(cls, game_result: dict | None) -> InlineKeyboardMarkup:
+        """Возвращает inline-клавиатуру игры для Telegram"""
+        
         game_result = cls.format_game_result(game_result)
         buttons = [
             [
-                KeyboardButton(text="Банк"),
-                KeyboardButton(text="Помощь"),
-                KeyboardButton(text="Баланс")
+                InlineKeyboardButton(text="Банк", callback_data='{"event":"get_game_bank"}'),
+                InlineKeyboardButton(text="Повторить", callback_data='{"event":"repeat_bet"}'),
+                InlineKeyboardButton(text="Баланс", callback_data='{"event":"get_user_balance"}')
             ]
         ]
 
         row = []
         for index, cup_number in enumerate(CUPS_STRING_NUMBERS, 1):
-            cup_number = str(cup_number)
-            row.append(KeyboardButton(text=f"{cup_number} (x{cls.get_coefficient(cup_number, game_result)})"))
+            cup_number_str = str(cup_number)
+            coeff = cls.get_coefficient(cup_number_str, game_result)
+            row.append(InlineKeyboardButton(
+                text=f"{cup_number_str} (x{coeff})", 
+                callback_data=f'{{"rate":"{cup_number_str}"}}'
+            ))
             if index % 3 == 0:
                 buttons.append(row)
                 row = []
         if row:
             buttons.append(row)
 
-        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
     @classmethod

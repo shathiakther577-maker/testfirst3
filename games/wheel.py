@@ -252,36 +252,37 @@ class WheelGameModel(BaseGameModel):
         return attachment[game_result.number]
 
     @classmethod
-    def get_game_keyboard(cls, game_result: dict | None) -> ReplyKeyboardMarkup:
-
+    def get_game_keyboard(cls, game_result: dict | None) -> InlineKeyboardMarkup:
+        """Возвращает inline-клавиатуру игры для Telegram"""
+        
         buttons = [
             [
-                KeyboardButton(text="Банк"),
-                KeyboardButton(text="Повторить"),
-                KeyboardButton(text="Баланс")
+                InlineKeyboardButton(text="Банк", callback_data='{"event":"get_game_bank"}'),
+                InlineKeyboardButton(text="Повторить", callback_data='{"event":"repeat_bet"}'),
+                InlineKeyboardButton(text="Баланс", callback_data='{"event":"get_user_balance"}')
             ],
             [
-                KeyboardButton(text="Четное"),
-                KeyboardButton(text="На число"),
-                KeyboardButton(text="Нечетное")
+                InlineKeyboardButton(text="Четное", callback_data='{"rate":"even"}'),
+                InlineKeyboardButton(text="На число", callback_data='{"rate":"number"}'),
+                InlineKeyboardButton(text="Нечетное", callback_data='{"rate":"odd"}')
             ],
             [
-                KeyboardButton(text="1-18"),
-                KeyboardButton(text="19-36")
+                InlineKeyboardButton(text="1-18", callback_data='{"rate":"1-18"}'),
+                InlineKeyboardButton(text="19-36", callback_data='{"rate":"19-36"}')
             ],
             [
-                KeyboardButton(text="1-12"),
-                KeyboardButton(text="13-24"),
-                KeyboardButton(text="25-36")
+                InlineKeyboardButton(text="1-12", callback_data='{"rate":"1-12"}'),
+                InlineKeyboardButton(text="13-24", callback_data='{"rate":"13-24"}'),
+                InlineKeyboardButton(text="25-36", callback_data='{"rate":"25-36"}')
             ],
             [
-                KeyboardButton(text="Красное"),
-                KeyboardButton(text="0"),
-                KeyboardButton(text="Черное")
+                InlineKeyboardButton(text="Красное", callback_data='{"rate":"red"}'),
+                InlineKeyboardButton(text="0", callback_data='{"rate":"0"}'),
+                InlineKeyboardButton(text="Черное", callback_data='{"rate":"black"}')
             ]
         ]
 
-        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
     @classmethod
